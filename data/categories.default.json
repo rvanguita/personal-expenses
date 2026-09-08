@@ -1,0 +1,86 @@
+{
+  "food": [
+    "Restaurante",
+    "Lanchonete",
+    "Pizzaria",
+    "Padaria",
+    "Delivery",
+    "Restaurant",
+    "Bakery"
+  ],
+  "groceries": [
+    "Supermercado",
+    "Mercado",
+    "Hortifruti",
+    "Grocery"
+  ],
+  "health": [
+    "Farmácia",
+    "Saúde",
+    "Pharmacy",
+    "Clinic"
+  ],
+  "transport": [
+    "Combustível",
+    "Transporte",
+    "Pedágio",
+    "Estacionamento",
+    "Fuel",
+    "Transit"
+  ],
+  "games": [
+    "Jogos",
+    "Games"
+  ],
+  "shopping": [
+    "Loja",
+    "Shopping",
+    "Vestuário",
+    "Papelaria",
+    "Store",
+    "Retail"
+  ],
+  "services": [
+    "Telefonia",
+    "Streaming",
+    "Assinatura",
+    "Serviços Digitais",
+    "Subscription",
+    "Digital Service"
+  ],
+  "education": [
+    "Educação",
+    "Escola",
+    "Education"
+  ],
+  "beauty": [
+    "Salão",
+    "Estética",
+    "Beauty"
+  ],
+  "travel": [
+    "Hospedagem",
+    "Hotel",
+    "Travel"
+  ],
+  "home": [
+    "Casa",
+    "Reparos Domésticos",
+    "Home Maintenance"
+  ],
+  "courses": [
+    "Curso",
+    "Course"
+  ],
+  "pet": [
+    "Pet Shop",
+    "Veterinário",
+    "Veterinary"
+  ],
+  "not_found": [
+    "Pagamento de Fatura",
+    "Transação não identificada",
+    "Invoice Payment",
+    "Manual review"
+  ]
+}

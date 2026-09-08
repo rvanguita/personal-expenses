@@ -1,0 +1,44 @@
+[project]
+name = "expenses"
+version = "0.1.0"
+description = "Credit Card Expenses & Financial Intelligence Dashboard with Gemini AI Categorization"
+readme = "README.md"
+authors = [{ name = "Personal Expenses contributors" }]
+requires-python = ">=3.13"
+dependencies = [
+    "google-genai>=2.18.1",
+    "numpy>=2.5.2",
+    "pandas>=3.0.5",
+    "plotly>=6.9.0",
+    "pymysql>=1.2.0",
+    "python-dotenv>=1.2.2",
+    "ruff>=0.16.3",
+    "sqlalchemy>=2.0.52",
+    "streamlit>=1.61.1",
+]
+
+[project.scripts]
+expenses = "main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
