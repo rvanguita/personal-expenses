@@ -1,0 +1,15 @@
+[server]
+port = 8503
+address = "0.0.0.0"
+headless = true
+
+[browser]
+gatherUsageStats = false
+
+# `base` is flipped at runtime by the sidebar theme toggle (ui/styles.render_theme_toggle).
+# Background / text colors are intentionally left to Streamlit's built-in light & dark palettes
+# so the toggle only has to change this one key; primaryColor works on both.
+[theme]
+base = "dark"
+primaryColor = "#00ACC1"
+font = "sans serif"

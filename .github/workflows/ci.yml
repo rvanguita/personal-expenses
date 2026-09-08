@@ -1,0 +1,42 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, Format & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install Dependencies (locked)
+        run: uv sync --all-groups --locked
+
+      - name: Ruff Lint
+        run: uv run ruff check .
+
+      - name: Ruff Format Check
+        run: uv run ruff format --check .
+
+      - name: Pytest Suite
+        run: uv run pytest
