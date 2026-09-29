@@ -20,6 +20,9 @@ services:
       - ./data:/app/data
 
   dash:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: expenses:latest
     container_name: expenses-dash
     restart: unless-stopped
@@ -33,5 +36,3 @@ services:
       - DASH_PORT=8050
     volumes:
       - ./data:/app/data
-    depends_on:
-      - streamlit
