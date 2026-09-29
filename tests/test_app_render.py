@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from streamlit.proto.Dataframe_pb2 import Dataframe as DataframeProto
 from streamlit.testing.v1 import AppTest
 
 from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
@@ -98,4 +99,8 @@ def test_operation_tabs_render_with_layer_data(offline_app, silver_history_df, s
     metrics = {m.label: m.value for m in at.metric}
     assert metrics["Total Bronze"] == f"{len(bronze):,}"
     assert metrics["Total Silver Records"] == f"{len(silver_layer):,}"
-    assert len(at.get("arrow_data_editor")) == 2  # Categorize + Manage Data Silver editors
+    # AppTest exposes st.data_editor as a "dataframe" whose editing mode is not READ_ONLY. Both
+    # Silver editors (Categorize + Manage Data) must be FIXED: saves merge edits into the full
+    # table by row, so adding/deleting rows through the editor is not supported.
+    editors = [df for df in at.dataframe if df.proto.editing_mode != DataframeProto.READ_ONLY]
+    assert [df.proto.editing_mode for df in editors] == [DataframeProto.FIXED] * 2
