@@ -17,6 +17,7 @@ from src.expenses.ui.tabs import (
     render_management_tab,
     render_reports_tab,
     render_trends_tab,
+    render_watchlist_tab,
 )
 
 
@@ -42,7 +43,7 @@ def main():
 
     if df_full.empty:
         st.warning(
-            "No data found in the database. Use the **Ingest Invoices** tab to upload your first invoice."
+            "No data found in the database. Use the **Ingest** tab to upload your first invoice."
         )
 
     # Sidebar global filters
@@ -54,10 +55,11 @@ def main():
     # Applying filters (src.expenses.filters.apply_filters)
     df_filtered = apply_filters(df_full, filters)
 
-    # Main navigation tabs
+    # Main navigation tabs: analysis first (one question each), then data operations
     (
-        tab_dashboard,
+        tab_overview,
         tab_trends,
+        tab_watchlist,
         tab_categories,
         tab_reports,
         tab_ingest,
@@ -65,21 +67,25 @@ def main():
         tab_manage,
     ) = st.tabs(
         [
-            "📊 General Dashboard",
-            "📈 Trends & Insights",
-            "🔍 Category Analysis",
-            "📑 Reports & Projections",
-            "📥 Ingest Invoices (Raw & Bronze)",
-            "🏷️ AI Categorization & Matching",
-            "🛠️ Lakehouse Data Management",
+            "📊 Overview",
+            "📈 Trends",
+            "🔔 Watchlist",
+            "🔍 Categories",
+            "📑 Reports",
+            "📥 Ingest",
+            "🏷️ Categorize",
+            "🛠️ Manage Data",
         ]
     )
 
-    with tab_dashboard:
+    with tab_overview:
         render_dashboard_tab(df_filtered, df_full)
 
     with tab_trends:
         render_trends_tab(df_filtered, df_full)
+
+    with tab_watchlist:
+        render_watchlist_tab(df_filtered, df_full)
 
     with tab_categories:
         render_category_tab(df_filtered)

@@ -29,7 +29,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
         if st.button(
             "🧹 Deduplicate All Layers (Drop Duplicate Rows)",
             type="secondary",
-            use_container_width=True,
+            width="stretch",
         ):
             with st.spinner(
                 "Scanning and removing duplicate records from Raw, Bronze, and Silver layers..."
@@ -41,7 +41,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                 st.rerun()
 
     with col_btn_refresh:
-        if st.button("🔄 Refresh Lakehouse Cache", use_container_width=True):
+        if st.button("🔄 Refresh Lakehouse Cache", width="stretch"):
             clear_caches()
             st.rerun()
 
@@ -133,7 +133,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                     "motivation": st.column_config.TextColumn("Motivation"),
                     "categorized_by": st.column_config.TextColumn("Source", disabled=True),
                 },
-                use_container_width=True,
+                width="stretch",
                 num_rows="dynamic",
                 key="silver_editor",
             )
@@ -147,9 +147,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                     st.success("Silver layer successfully updated!")
                     st.rerun()
         else:
-            st.info(
-                "Silver table is currently empty. Ingest an invoice via the '📥 Ingest Invoices' tab."
-            )
+            st.info("Silver table is currently empty. Ingest an invoice via the '📥 Ingest' tab.")
 
     # ------------------------------------
     # 2. BRONZE LAYER
@@ -180,7 +178,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                         "Ingested At", format="YYYY-MM-DD HH:mm:ss"
                     ),
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
             st.caption(f"Total Bronze records: **{len(df_bronze):,}**")
@@ -200,7 +198,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
             st.dataframe(
                 df_raw,
                 column_config={col: st.column_config.TextColumn(col) for col in df_raw.columns},
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
             st.caption(f"Total Raw records: **{len(df_raw):,}**")
@@ -239,7 +237,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                         "Registered Motives", format="%d"
                     ),
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 

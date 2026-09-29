@@ -1,245 +1,109 @@
 import pandas as pd
 import streamlit as st
 
-from src.expenses.analytics import calculate_kpis
-from src.expenses.config import (
-    REFERENCE_BUDGET_LIMIT,
-    format_currency_br,
-    format_currency_md,
-)
+from src.expenses.analytics import calculate_kpis, get_financial_health_score
+from src.expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
 from src.expenses.ui.figures import (
     CHART_STYLE_LINES,
     CHART_STYLE_STACKED,
     build_category_distribution_figure,
-    build_day_of_week_figure,
     build_monthly_evolution_figure,
     build_top_merchants_figure,
 )
-from src.expenses.ui.insights import automated_insights, health_insight, next_month_insight
-from src.expenses.ui.styles import render_insight_card
+from src.expenses.ui.insights import HEALTH_FACTOR_LABELS, attention_insights
+from src.expenses.ui.styles import render_attention, section
+
+_DATE_BASIS = {"Invoice date": "year_month", "Purchase date": "buy_year_month"}
+_CHART_STYLES = {"Stacked": CHART_STYLE_STACKED, "Lines": CHART_STYLE_LINES}
 
 
-def _render(insight) -> None:
-    if insight is not None:
-        render_insight_card(insight.icon, insight.title, insight.message, severity=insight.severity)
+def _render_kpis(kpis: dict, df_full: pd.DataFrame) -> None:
+    health = get_financial_health_score(df_full)
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric(
+        "Net spent",
+        format_currency_br(kpis["total_spent"]),
+        help=(
+            f"Gross {format_currency_br(kpis['gross_spent'])} · refunds "
+            f"{format_currency_br(kpis['total_refunds'])} · {kpis['total_tx']:,} transactions"
+        ),
+        border=True,
+    )
+    k2.metric(
+        "Monthly average",
+        format_currency_br(kpis["avg_monthly_spent"]),
+        help=f"Average net total across {kpis['num_months']} selected invoice(s).",
+        border=True,
+    )
+    k3.metric(
+        "Latest invoice",
+        format_currency_br(kpis["latest_m_val"]),
+        delta=f"{kpis['mom_delta_pct']:+.1f}% vs previous",
+        delta_color="inverse",
+        help="Latest selected invoice compared with the one before it.",
+        border=True,
+    )
+    if health["has_data"]:
+        factor = health["top_factor"]
+        k4.metric(
+            "Financial health",
+            f"{health['score']}/100",
+            delta=health["rating"],
+            delta_color="off",
+            delta_arrow="off",
+            help=(
+                "Composite of installment burden, unusual purchases, upcoming budget and "
+                f"volatility (full history). Weakest: {HEALTH_FACTOR_LABELS.get(factor, factor)}."
+            ),
+            border=True,
+        )
+    else:
+        k4.metric(
+            "Transactions",
+            f"{kpis['total_tx']:,}",
+            help=f"Average ticket {format_currency_br(kpis['avg_tx'])}.",
+            border=True,
+        )
 
 
 def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
-    """Renders the General Dashboard tab with KPIs, remodeled timeline controls, and Plotly charts."""
+    """Overview: how much was spent in the selected period and where it went."""
     if df_filtered.empty:
         st.info("No transactions found with the selected filters.")
         return
 
-    # Filter out payment settlements (Pagamentos Validos Normais)
-    df_expenses = (
-        df_filtered[~df_filtered["is_payment"]].copy()
-        if "is_payment" in df_filtered.columns
-        else df_filtered[
-            ~df_filtered["id"].str.contains(
-                r"PAGAMENTO|PAGTO|PAYMENT|PAGAMENTOS VALIDOS", case=False, regex=True, na=False
-            )
-        ].copy()
-    )
-
+    df_expenses = df_filtered[~df_filtered["is_payment"]].copy()
     kpis = calculate_kpis(df_filtered, df_full)
 
-    # ------------------------------------
-    # Financial Health Score
-    # ------------------------------------
-    _render(health_insight(df_full))
+    st.caption("How much you spent in the selected period and where it went.")
+    _render_kpis(kpis, df_full)
 
-    # ------------------------------------
-    # Next Month Installment Commitment Alert
-    # ------------------------------------
-    _render(next_month_insight(df_full, reference_limit=REFERENCE_BUDGET_LIMIT))
+    section("Needs attention")
+    render_attention(
+        attention_insights(kpis, df_expenses, df_full, reference_limit=REFERENCE_BUDGET_LIMIT)
+    )
 
-    st.write("")
-
-    # ------------------------------------
-    # Automated Insights
-    # ------------------------------------
-    st.markdown("#### 💡 Automated Insights")
     with st.container(border=True):
-        for col, insight in zip(
-            st.columns(5), automated_insights(kpis, df_expenses, df_full), strict=True
-        ):
-            with col:
-                _render(insight)
-
-    st.write("")
-
-    # ------------------------------------
-    # Key Performance Indicators (KPIs)
-    # ------------------------------------
-    st.markdown("#### 📊 Key Performance Indicators")
-    with st.container(border=True):
-        kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
-
-        kpi1.metric("💰 Net Spent", format_currency_br(kpis["total_spent"]))
-        if kpis["total_refunds"] < 0:
-            kpi1.caption(
-                f"Gross: {format_currency_br(kpis['gross_spent'])} | Refunds: {format_currency_br(kpis['total_refunds'])}"
-            )
-        else:
-            kpi1.caption(f"Invoices: {kpis['num_months']} selected")
-
-        kpi2.metric("📅 Monthly Avg", format_currency_br(kpis["avg_monthly_spent"]))
-        kpi2.caption("Avg net per invoice")
-
-        delta_str = f"{kpis['mom_delta_pct']:+.1f}% ({format_currency_br(kpis['mom_delta_val'])})"
-        kpi3.metric(
-            "📈 MoM Variation",
-            format_currency_br(kpis["latest_m_val"]),
-            delta=delta_str,
-            delta_color="inverse",
+        title_col, options_col = st.columns([5, 1])
+        title_col.markdown("##### Monthly spending by category")
+        with options_col.popover("Options", width="stretch"):
+            basis = st.radio("Group by", list(_DATE_BASIS), key="ov_date_basis")
+            style = st.radio("View", list(_CHART_STYLES), key="ov_chart_style")
+        fig = build_monthly_evolution_figure(
+            df_expenses, group_col=_DATE_BASIS[basis], chart_style=_CHART_STYLES[style]
         )
-        kpi3.caption("Latest vs previous")
+        if fig is not None:
+            st.plotly_chart(fig, width="stretch")
 
-        kpi4.metric("🏆 Top Category", kpis["top_cat_name"])
-        kpi4.caption(f"{format_currency_md(kpis['top_cat_val'])} ({kpis['top_cat_pct']:.1f}%)")
-
-        kpi5.metric("🧾 Transactions", f"{kpis['total_tx']:,}")
-        kpi5.caption(f"Avg Ticket: {format_currency_md(kpis['avg_tx'])}")
-
-        kpi6.metric("💳 Installments", f"{kpis['installment_pct']:.1f}%")
-        kpi6.caption(f"{format_currency_md(kpis['installment_spent'])} total")
-
-    # ------------------------------------
-    # Consolidated Monthly Invoice Totals Table (by exact invoice 'date')
-    # ------------------------------------
-    with st.expander(
-        "📋 **Detailed Monthly Invoice Totals (Grouped by Invoice `date`)**", expanded=False
-    ):
-        df_invoice_summary = (
-            df_expenses.groupby(["year_month", "date"])
-            .agg(
-                tx_count=("cost", "count"),
-                gross_cost=("cost", lambda s: s[s > 0].sum()),
-                refunds=("cost", lambda s: s[s < 0].sum()),
-                net_cost=("cost", "sum"),
-            )
-            .reset_index()
-            .sort_values(by="date", ascending=False)
-        )
-        df_invoice_display = df_invoice_summary.copy()
-        df_invoice_display["Invoice Month"] = df_invoice_display["year_month"]
-        df_invoice_display["Invoice Date"] = pd.to_datetime(df_invoice_display["date"])
-        df_invoice_display["Transactions"] = df_invoice_display["tx_count"].astype(int)
-        df_invoice_display["Gross Purchases"] = df_invoice_display["gross_cost"].astype(float)
-        df_invoice_display["Refunds / Estornos"] = df_invoice_display["refunds"].astype(float)
-        df_invoice_display["Net Invoice Total (Valor da Fatura)"] = df_invoice_display[
-            "net_cost"
-        ].astype(float)
-
-        st.dataframe(
-            df_invoice_display[
-                [
-                    "Invoice Month",
-                    "Invoice Date",
-                    "Transactions",
-                    "Gross Purchases",
-                    "Refunds / Estornos",
-                    "Net Invoice Total (Valor da Fatura)",
-                ]
-            ],
-            column_config={
-                "Invoice Month": st.column_config.TextColumn("Invoice Month"),
-                "Invoice Date": st.column_config.DateColumn("Invoice Date", format="YYYY-MM-DD"),
-                "Transactions": st.column_config.NumberColumn("Transactions", format="%d"),
-                "Gross Purchases": st.column_config.NumberColumn(
-                    "Gross Purchases", format="R$ %.2f"
-                ),
-                "Refunds / Estornos": st.column_config.NumberColumn(
-                    "Refunds / Estornos", format="R$ %.2f"
-                ),
-                "Net Invoice Total (Valor da Fatura)": st.column_config.NumberColumn(
-                    "Net Invoice Total (Valor da Fatura)", format="R$ %.2f"
-                ),
-            },
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    st.write("")
-
-    # ------------------------------------
-    # Primary Charts (Row 1)
-    # ------------------------------------
-    c1, c2 = st.columns([3, 2])
-
-    with c1:
-        with st.container(border=True):
-            st.markdown("#### 📊 Monthly Expense Evolution by Category")
-
-            # Remodeled Timeline Controls Toolbar
-            col_ctl1, col_ctl2 = st.columns([3, 2])
-            with col_ctl1:
-                timeline_mode = st.segmented_control(
-                    "Group Timeline By:",
-                    options=["📅 Invoice Date (`date`)", "🛒 Purchase Date (`date_buy`)"],
-                    default="📅 Invoice Date (`date`)",
-                    key="seg_timeline_mode",
-                )
-                if not timeline_mode:
-                    timeline_mode = "📅 Invoice Date (`date`)"
-
-            with col_ctl2:
-                chart_style = st.segmented_control(
-                    "Chart View:",
-                    options=["📊 Stacked", "📈 Trend Lines"],
-                    default="📊 Stacked",
-                    key="seg_chart_style",
-                )
-                if not chart_style:
-                    chart_style = "📊 Stacked"
-
-            # Active date basis
-            is_invoice_date = "Invoice Date" in timeline_mode
-            group_col = "year_month" if is_invoice_date else "buy_year_month"
-            timeline_desc = (
-                "Grouping expenses by credit card invoice billing cycle date (`date`)"
-                if is_invoice_date
-                else "Grouping expenses by actual transaction date (`date_buy`)"
-            )
-            st.caption(f"ℹ️ *{timeline_desc}*")
-
-            fig_bar = build_monthly_evolution_figure(
-                df_expenses,
-                group_col=group_col,
-                chart_style=(
-                    CHART_STYLE_LINES if chart_style == "📈 Trend Lines" else CHART_STYLE_STACKED
-                ),
-            )
-            if fig_bar is not None:
-                st.plotly_chart(fig_bar, use_container_width=True)
-
-    with c2:
-        with st.container(border=True):
-            st.markdown("#### 🏆 Expense Distribution by Category")
-            st.markdown(
-                f'<span class="hide-amount" style="font-size:0.875rem;opacity:0.6;">'
-                f"Total: {format_currency_br(kpis['total_spent'])}</span>",
-                unsafe_allow_html=True,
-            )
-            fig_cat_bar = build_category_distribution_figure(df_expenses)
-            if fig_cat_bar is not None:
-                st.plotly_chart(fig_cat_bar, use_container_width=True)
-
-    # ------------------------------------
-    # Secondary Charts (Row 2)
-    # ------------------------------------
-    c3, c4 = st.columns([3, 2])
-
-    with c3:
-        with st.container(border=True):
-            st.markdown("#### 🏢 Top 10 Merchants / Expenses")
-            fig_merchants = build_top_merchants_figure(df_expenses, top_n=10)
-            if fig_merchants is not None:
-                st.plotly_chart(fig_merchants, use_container_width=True)
-
-    with c4:
-        with st.container(border=True):
-            st.markdown("#### 📅 Spending Pattern by Day of Week")
-            fig_days = build_day_of_week_figure(df_expenses, height=390)
-            if fig_days is not None:
-                st.plotly_chart(fig_days, use_container_width=True)
+    left, right = st.columns(2)
+    with left, st.container(border=True):
+        st.markdown("##### Spending by category")
+        fig = build_category_distribution_figure(df_expenses, height=400)
+        if fig is not None:
+            st.plotly_chart(fig, width="stretch")
+    with right, st.container(border=True):
+        st.markdown("##### Top 10 merchants")
+        fig = build_top_merchants_figure(df_expenses, top_n=10, height=400)
+        if fig is not None:
+            st.plotly_chart(fig, width="stretch")

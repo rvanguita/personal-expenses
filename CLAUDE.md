@@ -135,12 +135,29 @@ existing KPIs.
 ### UI structure
 
 `main.py` wires global sidebar filters (`src/expenses/ui/sidebar.py`) applied to a `df_full` loaded from
-Silver, producing `df_filtered`, then renders 7 tabs from `src/expenses/ui/tabs/`: `dashboard`, `trends`,
-`category`, `reports`, `import_tab` (ingestion into Raw/Bronze), `categorize_tab` (runs the AI pipeline
-into Silver), `management` (Lakehouse editor/dedup/dictionary viewer). Each tab module exposes a single
-`render_*_tab(...)` function imported via `src/expenses/ui/tabs/__init__.py`. Most tabs take
-`(df_filtered, df_full)`; ingestion/categorization/management tabs take a MySQL `engine` instead (or in
-addition) since they write data rather than just visualize it.
+Silver, producing `df_filtered`, then renders 8 tabs from `src/expenses/ui/tabs/` — five analytic tabs,
+each answering **one question**, then three data-operation tabs:
+
+| Tab (module) | Question | Content |
+|---|---|---|
+| Overview (`dashboard`) | How much did I spend and where? | 4 KPIs, "Needs attention" strip, monthly-by-category chart, category + top-merchant bars |
+| Trends (`trends`) | Is spending changing? | 4 KPIs, net + 3M average, one comparison chart (previous period / last year), momentum in an expander |
+| Watchlist (`watchlist`) | What needs my attention? | Recurring charges, unusual purchases, uncategorized spending; frequency changes in an expander |
+| Categories (`category`) | What is inside one category? | 4 KPIs (total delta = 3M momentum), history, top merchants, day-of-week; detail tables in expanders |
+| Reports (`reports`) | What is committed ahead / give me the data | Executive summary, installment commitments vs limit (`REFERENCE_BUDGET_LIMIT`), invoice totals, all rows, CSV |
+| Ingest / Categorize / Manage Data (`import_tab`, `categorize_tab`, `management`) | — | Write paths into Raw/Bronze/Silver |
+
+Layout rules for analytic tabs (keep them when adding content): one `st.caption` stating the tab's
+purpose, **at most one row of ≤4 `st.metric(..., border=True)`** with explanations in `help=`,
+charts in `st.container(border=True)` (max two per row), secondary tables in collapsed
+`st.expander`s, headings via `styles.section()`. Insight cards are reserved for things that need
+action: `insights.attention_insights()` keeps only `critical`/`warning` (max 3) for the Overview
+strip; "all good" is silent. Use `width="stretch"`, never the deprecated `use_container_width`.
+
+Each tab module exposes a single `render_*_tab(...)` function imported via
+`src/expenses/ui/tabs/__init__.py`. Most tabs take `(df_filtered, df_full)`; ingestion/categorization/
+management tabs take a MySQL `engine` instead (or in addition) since they write data rather than just
+visualize it.
 
 `src/expenses/__init__.py` re-exports the public API of the `expenses` package (analytics, config,
 database, parser, ai_categorizer, `filters.apply_filters`, `runtime` shims) — when adding a new function
@@ -157,18 +174,22 @@ DB is empty and *not* part of the returned filter dict:
 - **Theme toggle** (`styles.render_theme_toggle`) — rewrites `base` in `.streamlit/config.toml`,
   mutates the in-process config via `streamlit.config`, then forces a full browser reload
   (`components.html` + `location.reload()`) so every element repaints from the new base (Streamlit
-  can't hot-swap `[theme]` mid-session). `ui/styles.py` card / header CSS uses Streamlit theme CSS
-  variables (`var(--secondary-background-color)` etc.) and `ui/charts.py` derives grid / tick /
-  total-line colors from `st.get_option("theme.base")` so figures track the active base.
+  can't hot-swap `[theme]` mid-session). `ui/styles.py` card / header CSS derives its colors from
+  `currentColor` (Streamlit does not expose its theme as CSS variables, so `var(--...)` only ever hits
+  the fallback) and `ui/charts.py` derives grid / tick / total-line colors from
+  `st.get_option("theme.base")` so figures track the active base.
 
 ## Testing conventions
 
 Tests are pure unit tests over DataFrame transforms (parser, analytics, `database._shape_silver_frame`
 + dedup key), `config.py` helpers (currency formatting, category mappings, `normalize_merchant_id`),
 `filters.apply_filters` (`test_filters.py`), `ai_categorizer` matching / Gemini-response reshaping with
-`gemini_category` stubbed (`test_categorizer.py`), and an import smoke that loads `main.py` + all 7 tab
-modules with the DB entrypoints monkeypatched to raise (`test_app_imports.py`) — no database or Gemini
-API calls are mocked or hit. Shared fixtures (`sample_raw_csv_content`, `sample_csv_file`,
-`sample_expenses_df`) live in `tests/conftest.py`; extend these rather than duplicating sample data per
+`gemini_category` stubbed (`test_categorizer.py`), `ui/insights` selection logic (`test_insights.py`), an
+import smoke that loads `main.py` + all 8 tab modules with the DB entrypoints monkeypatched to raise
+(`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
+`streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
+`silver_history_df` fixture — no database or Gemini API calls are hit. Shared fixtures
+(`sample_raw_csv_content`, `sample_csv_file`, `sample_expenses_df`, `silver_history_df`) live in
+`tests/conftest.py`; extend these rather than duplicating sample data per
 test file. The Silver enrichment lives in the pure `database._shape_silver_frame(df)` helper (called by
 `load_expenses_data`), so test that instead of the DB-reading function.

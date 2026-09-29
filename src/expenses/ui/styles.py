@@ -18,30 +18,31 @@ _CONFIG_TOML = Path(__file__).resolve().parents[3] / ".streamlit" / "config.toml
 
 
 def apply_custom_styles():
-    """Injects insight-card / typography CSS built on Streamlit's theme variables so it tracks
-    whichever `[theme] base` is active (light or dark) without any Python branching."""
+    """Injects insight-card CSS derived from ``currentColor`` (the active theme's text color), so it
+    tracks whichever ``[theme] base`` is active (light or dark) without any Python branching.
+    Streamlit does not expose its theme as CSS variables, so ``var(--...)`` would only ever hit
+    the fallback."""
     st.markdown(
         """
         <style>
         .insight-card {
-            background-color: var(--secondary-background-color, #1E222B);
-            border: 1px solid color-mix(in srgb, var(--text-color, #ECEFF1) 14%, transparent);
-            border-left: 4px solid var(--primary-color, #00ACC1);
-            border-radius: 10px;
-            padding: 14px 16px;
+            background-color: color-mix(in srgb, currentColor 5%, transparent);
+            border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+            border-left: 3px solid #00ACC1;
+            border-radius: 8px;
+            padding: 10px 14px;
             margin-bottom: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 100%;
         }
         .insight-card-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-color, #ECEFF1);
+            font-size: 0.9rem;
+            font-weight: 600;
             margin-bottom: 2px;
         }
         .insight-card-message {
             font-size: 0.85rem;
-            color: color-mix(in srgb, var(--text-color, #9AA0A6) 65%, transparent);
-            line-height: 1.4;
+            opacity: 0.75;
+            line-height: 1.45;
         }
         </style>
         """,
@@ -49,32 +50,58 @@ def apply_custom_styles():
     )
 
 
+def _inline_markdown_to_html(text: str) -> str:
+    """The card body is raw HTML (markdown isn't parsed inside it): render ``**bold**`` and show
+    currency ``$`` literally (``format_currency_md`` pre-escapes it as ``\\$``)."""
+    text = text.replace("\\$", "&#36;").replace("$", "&#36;")
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+
+
 def render_insight_card(icon: str, title: str, message: str, severity: str = "info") -> None:
     """Renders a severity-colored insight card (info/good/warning/critical) in place of ad hoc
     st.info/warning/success calls, so narrative insights share one visual language across tabs."""
     color = _SEVERITY_COLORS.get(severity, _SEVERITY_COLORS["info"])
     st.markdown(
-        f"""
-        <div class="insight-card" style="border-left-color: {color};">
-            <div class="insight-card-title">{icon} {title}</div>
-            <div class="insight-card-message">{message}</div>
-        </div>
-        """,
+        f'<div class="insight-card" style="border-left-color: {color};">'
+        f'<div class="insight-card-title">{icon} {title}</div>'
+        f'<div class="insight-card-message">{_inline_markdown_to_html(message)}</div>'
+        "</div>",
         unsafe_allow_html=True,
     )
 
 
+def render_insight(insight) -> None:
+    """Renders an ``ui.insights.Insight`` as an insight card (no-op for ``None``)."""
+    if insight is not None:
+        render_insight_card(insight.icon, insight.title, insight.message, severity=insight.severity)
+
+
+def render_attention(insights: list) -> None:
+    """'Needs attention' strip: one compact card per actionable insight, or a quiet all-clear."""
+    if not insights:
+        st.caption("✅ Nothing needs your attention right now.")
+        return
+    for col, insight in zip(st.columns(len(insights)), insights, strict=True):
+        with col:
+            render_insight(insight)
+
+
+def section(title: str, caption: str | None = None) -> None:
+    """Uniform section heading used by every analytic tab."""
+    st.markdown(f"##### {title}")
+    if caption:
+        st.caption(caption)
+
+
 def render_header():
-    """Renders the main page top header with title and subtitle."""
+    """Renders the compact page header."""
     st.markdown(
         """
-        <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--text-color, #333) 20%, transparent); margin-bottom: 20px;">
-            <div>
-                <h1 style="margin: 0; font-size: 2.2rem;">💳 Expenses & Financial Intelligence</h1>
-                <p style="margin: 4px 0 0 0; color: color-mix(in srgb, var(--text-color, #9E9E9E) 62%, transparent); font-size: 1rem;">
-                    Credit card expenses analytics dashboard with AI-powered categorization
-                </p>
-            </div>
+        <div style="padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);">
+            <h2 style="margin: 0; padding: 0; font-size: 1.6rem;">💳 Expenses & Financial Intelligence</h2>
+            <p style="margin: 2px 0 0 0; opacity: 0.6; font-size: 0.9rem;">
+                Credit card spending, trends and commitments
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -161,7 +188,7 @@ def render_theme_toggle() -> None:
     current = _current_theme_base()
     target = "light" if current == "dark" else "dark"
     label = "☀️ Switch to light" if current == "dark" else "🌙 Switch to dark"
-    if st.button(label, use_container_width=True, key="theme_toggle"):
+    if st.button(label, width="stretch", key="theme_toggle"):
         _write_theme_base(target)
         try:
             from streamlit import config as _st_config
