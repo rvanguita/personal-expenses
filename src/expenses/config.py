@@ -35,6 +35,10 @@ CATEGORY_LOCAL_PATH = Path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.loc
 # Streamlit Port Configuration
 STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", os.getenv("STREAMLIT_SERVER_PORT", "8503")))
 
+# Dash Frontend Configuration
+DASH_HOST = os.getenv("DASH_HOST", "0.0.0.0")
+DASH_PORT = int(os.getenv("DASH_PORT", "8050"))
+
 # Category metadata, colors, and English labels
 CATEGORY_CONFIG = {
     "food": {"label": "Food & Dining", "color": "#FF9800", "icon": "🍔"},

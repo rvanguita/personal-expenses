@@ -8,8 +8,17 @@ Web app for ingesting, categorizing (via Google Gemini AI), and analyzing person
 expenses, backed by a MySQL **Medallion Architecture** (Raw → Bronze → Silver). Package/dependency
 management is via `uv`.
 
-**One frontend:** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
-`analytics.py` + `ui/charts.py` (figure helpers) + `config.py` + `filters.apply_filters`.
+**Two frontends** over the same backend:
+- `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`: all 7 tabs (incl. ingest / AI
+  categorization / lakehouse management).
+- `dash_main.py` — **Dash** app (`src/expenses/dash_ui/`), port `8050` (`DASH_PORT`): read-only
+  analytics (dashboard, trends, category, reports + CSV export), sidebar filters, hide-amounts and
+  light/dark toggle. Writes/ingestion stay Streamlit-only.
+
+Both consume `analytics.py` + `config.py` + `filters.apply_filters` and the framework-agnostic
+`ui/charts.py` (theme/hide-amounts via `chart_context`), `ui/figures.py` (figure builders) and
+`ui/insights.py` (`Insight` cards). **Add new charts/insights there, not inline in a tab**, so both
+frontends get them. `ui/charts.py`, `figures.py`, `insights.py` must not import Streamlit at module level.
 
 The former Streamlit coupling in `database.py` / `parser.py` / `ai_categorizer.py` lives behind
 `src/expenses/runtime.py` (`cache_data`, `cache_resource`, `clear_caches`, `notify_error`,
@@ -25,6 +34,9 @@ uv sync --all-groups
 # Run the Streamlit app (port 8503, from .env STREAMLIT_PORT)
 uv run streamlit run main.py
 
+# Run the Dash app (port 8050, from .env DASH_PORT)
+uv run python dash_main.py
+
 # Run all tests
 uv run pytest
 
@@ -36,7 +48,7 @@ uv run pytest tests/test_analytics.py::test_calculate_kpis_basic
 uv run ruff check .
 uv run ruff format .            # CI runs `ruff format --check .`
 
-# Docker Compose (single `streamlit` service = :8503)
+# Docker Compose (`streamlit` = :8503, `dash` = :8050)
 docker compose up --build -d
 docker compose logs -f streamlit
 # After renaming/removing a service, drop the old fixed-name container once:
