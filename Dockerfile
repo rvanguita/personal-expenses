@@ -40,5 +40,7 @@ EXPOSE 8503
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl --fail http://localhost:8503/_stcore/health || exit 1
 
-# Command to launch the Streamlit application
-CMD ["uv", "run", "streamlit", "run", "main.py", "--server.port=8503", "--server.address=0.0.0.0"]
+# Command to launch the Streamlit application. The venv was fully synced at build time (`--no-dev`
+# above), so `--no-sync` stops `uv run` from re-syncing on every start: without it, uv installs the
+# dev group (pytest & co.) and rebuilds/reinstalls the project each time the container boots.
+CMD ["uv", "run", "--no-sync", "streamlit", "run", "main.py", "--server.port=8503", "--server.address=0.0.0.0"]
