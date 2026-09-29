@@ -9,7 +9,10 @@ expenses, backed by a MySQL **Medallion Architecture** (Raw → Bronze → Silve
 management is via `uv`.
 
 **One frontend:** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
-`analytics.py` + `ui/charts.py` (figure helpers) + `config.py` + `filters.apply_filters`.
+`analytics.py` + `config.py` + `filters.apply_filters` and the framework-agnostic
+`ui/charts.py` (theme/hide-amounts via `chart_context`), `ui/figures.py` (figure builders) and
+`ui/insights.py` (`Insight` cards). **Add new charts/insights to `figures.py` / `insights.py`, not
+inline in a tab.** `charts.py`, `figures.py`, `insights.py` must not import Streamlit at module level.
 
 The former Streamlit coupling in `database.py` / `parser.py` / `ai_categorizer.py` lives behind
 `src/expenses/runtime.py` (`cache_data`, `cache_resource`, `clear_caches`, `notify_error`,

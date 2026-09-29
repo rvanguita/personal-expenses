@@ -1,5 +1,4 @@
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 
 from src.expenses.analytics import (
@@ -18,10 +17,23 @@ from src.expenses.config import (
     RECURRING_MIN_MONTHS,
     format_currency_br,
 )
-from src.expenses.ui.charts import EMPHASIS_ACCENT, EMPHASIS_MUTED, apply_chart_theme
+from src.expenses.ui.figures import (
+    build_period_comparison_figure,
+    build_trend_figure,
+    build_yoy_figure,
+)
+from src.expenses.ui.insights import (
+    anomalies_insight,
+    frequency_change_insight,
+    top_momentum_insight,
+)
 from src.expenses.ui.styles import render_insight_card
 
 _MOMENTUM_ICONS = {"rising": "▲", "falling": "▼", "stable": "→"}
+
+
+def _render(insight) -> None:
+    render_insight_card(insight.icon, insight.title, insight.message, severity=insight.severity)
 
 
 def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
@@ -64,33 +76,8 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
             t3.metric("Projected Next Month", format_currency_br(trend["projected_next"]))
             t3.caption("Simple trend-line projection")
 
-            ma_df = trend["moving_avg_df"]
-            if len(ma_df) >= 2:
-                fig_trend = go.Figure()
-                fig_trend.add_trace(
-                    go.Scatter(
-                        x=ma_df["year_month"],
-                        y=ma_df["cost"],
-                        mode="lines+markers",
-                        name="Net Monthly Spend",
-                        line={"color": "#4FC3F7", "width": 2.5},
-                        marker={"size": 7},
-                    )
-                )
-                fig_trend.add_trace(
-                    go.Scatter(
-                        x=ma_df["year_month"],
-                        y=ma_df["moving_avg"],
-                        mode="lines",
-                        name="3-Month Moving Avg",
-                        line={"color": "#FFB74D", "width": 2.5, "dash": "dash"},
-                    )
-                )
-                apply_chart_theme(fig_trend, height=320, legend="top")
-                fig_trend.update_layout(
-                    xaxis={"type": "category", "title": "", "tickangle": -45},
-                    yaxis={"title": "Amount (R$)"},
-                )
+            fig_trend = build_trend_figure(trend["moving_avg_df"])
+            if fig_trend is not None:
                 st.plotly_chart(fig_trend, use_container_width=True)
     else:
         st.info("Not enough monthly data yet to compute a spending trend.")
@@ -131,28 +118,8 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
             )
             p3.caption("Current vs previous period")
 
-            by_cat = pop["by_category"].head(10)
-            if not by_cat.empty:
-                fig_pop = go.Figure()
-                fig_pop.add_trace(
-                    go.Bar(
-                        x=by_cat["category_label"],
-                        y=by_cat["previous"],
-                        name=f"Previous ({pop['previous_months'][0]} → {pop['previous_months'][-1]})",
-                        marker_color=EMPHASIS_MUTED,
-                    )
-                )
-                fig_pop.add_trace(
-                    go.Bar(
-                        x=by_cat["category_label"],
-                        y=by_cat["current"],
-                        name=f"Current ({pop['current_months'][0]} → {pop['current_months'][-1]})",
-                        marker_color=EMPHASIS_ACCENT,
-                    )
-                )
-                fig_pop.update_layout(barmode="group")
-                apply_chart_theme(fig_pop, height=360, legend="top")
-                fig_pop.update_layout(xaxis={"title": "", "tickangle": -30})
+            fig_pop = build_period_comparison_figure(pop)
+            if fig_pop is not None:
                 st.plotly_chart(fig_pop, use_container_width=True)
     else:
         st.info("Not enough historical data before the selected period to build a comparison.")
@@ -171,23 +138,7 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
 
     with st.container(border=True):
         if not momentum.empty:
-            rising = momentum[momentum["direction"] == "rising"]
-            if not rising.empty:
-                top_rising = rising.iloc[0]
-                render_insight_card(
-                    "📈",
-                    f"Rising: {top_rising['category_label']}",
-                    f"Up **{top_rising['pct_change_over_window']:+.1f}%** over the last 3 months "
-                    f"(now **{format_currency_br(top_rising['last_month_value'])}**/month).",
-                    severity="warning",
-                )
-            else:
-                render_insight_card(
-                    "🧭",
-                    "Category Momentum",
-                    "No category is on a consistent 3-month rising trend right now.",
-                    severity="good",
-                )
+            _render(top_momentum_insight(momentum))
 
             display_momentum = momentum.copy()
             display_momentum["Category"] = display_momentum["category_label"]
@@ -243,26 +194,7 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
             )
             y3.caption("Year-over-year")
 
-            fig_yoy = go.Figure()
-            fig_yoy.add_trace(
-                go.Bar(
-                    x=yoy["month_name"],
-                    y=yoy["previous_val"],
-                    name=str(prev_year),
-                    marker_color=EMPHASIS_MUTED,
-                )
-            )
-            fig_yoy.add_trace(
-                go.Bar(
-                    x=yoy["month_name"],
-                    y=yoy["current_val"],
-                    name=str(cur_year),
-                    marker_color=EMPHASIS_ACCENT,
-                )
-            )
-            fig_yoy.update_layout(barmode="group")
-            apply_chart_theme(fig_yoy, height=360, legend="top")
-            st.plotly_chart(fig_yoy, use_container_width=True)
+            st.plotly_chart(build_yoy_figure(yoy), use_container_width=True)
     else:
         st.info("Year-over-Year comparison needs at least two years of invoice history.")
 
@@ -340,18 +272,7 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
 
     with st.container(border=True):
         if not freq_change.empty:
-            top_change = freq_change.iloc[0]
-            increased = top_change["direction"] == "increased"
-            direction_word = "buying more often from" if increased else "buying less often from"
-            render_insight_card(
-                "🔀" if increased else "📉",
-                f"Most Notable Change: {top_change['id']}",
-                f"You're {direction_word} **{top_change['id']}** — "
-                f"**{top_change['recent_monthly_rate']:.1f}x/month** recently vs. "
-                f"**{top_change['baseline_monthly_rate']:.1f}x/month** historically "
-                f"({top_change['change_pct']:+.0f}%).",
-                severity="warning" if increased else "info",
-            )
+            _render(frequency_change_insight(freq_change))
 
             display_freq = freq_change.copy()
             display_freq["Merchant"] = display_freq["id"]
@@ -408,14 +329,8 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     )
 
     with st.container(border=True):
+        _render(anomalies_insight(anomalies))
         if not anomalies.empty:
-            render_insight_card(
-                "⚠️",
-                f"{len(anomalies)} Unusual Transaction(s)",
-                "Detected in the selected period — well above their category's typical pattern.",
-                severity="warning",
-            )
-
             display_anom = anomalies.copy()
             display_anom["Purchase Date"] = pd.to_datetime(display_anom["date_buy"])
             display_anom["Merchant"] = display_anom["id"]
@@ -439,12 +354,4 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
                 },
                 use_container_width=True,
                 hide_index=True,
-            )
-        else:
-            render_insight_card(
-                "✅",
-                "No Anomalies Detected",
-                "All transactions in the selected period fall within the expected spending pattern "
-                "for their category.",
-                severity="good",
             )

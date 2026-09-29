@@ -1,49 +1,27 @@
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-from src.expenses.analytics import (
-    calculate_kpis,
-    get_day_of_week_spending,
-    get_financial_health_score,
-    get_month_pace_projection,
-    get_monthly_grouped,
-    get_next_month_commitment_metrics,
-    get_spending_anomalies,
-    get_top_merchants,
-)
+from src.expenses.analytics import calculate_kpis
 from src.expenses.config import (
-    ANOMALY_MIN_CATEGORY_TX,
-    ANOMALY_Z_THRESHOLD,
-    CATEGORY_COLOR_MAP,
-    INSTALLMENT_BURDEN_WARNING_PCT,
     REFERENCE_BUDGET_LIMIT,
     format_currency_br,
     format_currency_md,
-    get_category_color,
 )
-from src.expenses.ui.charts import (
-    add_total_line_trace,
-    amounts_hidden,
-    apply_chart_theme,
-    build_emphasis_bar_colors,
-    build_ranked_bar_chart,
+from src.expenses.ui.figures import (
+    CHART_STYLE_LINES,
+    CHART_STYLE_STACKED,
+    build_category_distribution_figure,
+    build_day_of_week_figure,
+    build_monthly_evolution_figure,
+    build_top_merchants_figure,
 )
+from src.expenses.ui.insights import automated_insights, health_insight, next_month_insight
 from src.expenses.ui.styles import render_insight_card
 
-_HEALTH_RATING_META = {
-    "Excellent": {"icon": "💚", "severity": "good"},
-    "Good": {"icon": "✅", "severity": "good"},
-    "Fair": {"icon": "🟡", "severity": "warning"},
-    "At Risk": {"icon": "🔴", "severity": "critical"},
-}
-_HEALTH_FACTOR_LABELS = {
-    "installment_burden": "installment burden",
-    "anomalies": "unusual transactions",
-    "budget_proximity": "upcoming budget proximity",
-    "spend_volatility": "month-over-month volatility",
-}
+
+def _render(insight) -> None:
+    if insight is not None:
+        render_insight_card(insight.icon, insight.title, insight.message, severity=insight.severity)
 
 
 def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
@@ -68,48 +46,12 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     # ------------------------------------
     # Financial Health Score
     # ------------------------------------
-    health = get_financial_health_score(df_full)
-    if health["has_data"]:
-        rating_meta = _HEALTH_RATING_META[health["rating"]]
-        top_factor_label = _HEALTH_FACTOR_LABELS.get(health["top_factor"], health["top_factor"])
-        top_factor_score = health["components"].get(health["top_factor"], 0)
-        render_insight_card(
-            rating_meta["icon"],
-            f"Financial Health Score: {health['score']}/100 ({health['rating']})",
-            f"Composite score across installment burden, anomalies, upcoming budget proximity, and "
-            f"spending volatility. Weakest factor: **{top_factor_label}** ({top_factor_score:.0f}/100).",
-            severity=rating_meta["severity"],
-        )
+    _render(health_insight(df_full))
 
     # ------------------------------------
     # Next Month Installment Commitment Alert
     # ------------------------------------
-    next_metrics = get_next_month_commitment_metrics(
-        df_full, reference_limit=REFERENCE_BUDGET_LIMIT
-    )
-    if next_metrics["has_data"]:
-        next_cost_md = format_currency_md(next_metrics["next_month_cost"])
-        diff_val_md = format_currency_md(abs(next_metrics["diff_from_limit"]))
-        limit_md = format_currency_md(REFERENCE_BUDGET_LIMIT)
-
-        if next_metrics["is_over_limit"]:
-            render_insight_card(
-                "⚠️",
-                f"Upcoming Month Budget Warning ({next_metrics['next_month']})",
-                f"**{next_cost_md}** ({next_metrics['pct_of_limit']:.1f}% of the {limit_md} reference "
-                f"limit) is already committed across **{next_metrics['num_installments']}** active "
-                f"installment(s) — **+{diff_val_md} above** the reference limit.",
-                severity="critical",
-            )
-        else:
-            render_insight_card(
-                "🔒",
-                f"Upcoming Month Budget On Track ({next_metrics['next_month']})",
-                f"**{next_cost_md}** ({next_metrics['pct_of_limit']:.1f}% of the {limit_md} reference "
-                f"limit) is already committed across **{next_metrics['num_installments']}** active "
-                f"installment(s) — **{diff_val_md} remaining** within budget.",
-                severity="good",
-            )
+    _render(next_month_insight(df_full, reference_limit=REFERENCE_BUDGET_LIMIT))
 
     st.write("")
 
@@ -118,115 +60,11 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     # ------------------------------------
     st.markdown("#### 💡 Automated Insights")
     with st.container(border=True):
-        in1, in2, in3, in4, in5 = st.columns(5)
-
-        with in1:
-            render_insight_card(
-                "🎯",
-                "Top Expense Driver",
-                f"**{kpis['top_cat_name']}** consumes **{kpis['top_cat_pct']:.1f}%** of your total net "
-                "spending.",
-                severity="info",
-            )
-
-        with in2:
-            if kpis["mom_delta_pct"] > 0:
-                render_insight_card(
-                    "📈",
-                    "Spending Increased",
-                    f"Your latest invoice is **{kpis['mom_delta_pct']:.1f}%** higher than the previous "
-                    "one.",
-                    severity="warning",
-                )
-            elif kpis["mom_delta_pct"] < 0:
-                render_insight_card(
-                    "📉",
-                    "Spending Decreased",
-                    f"Great job! Your latest invoice dropped by **{abs(kpis['mom_delta_pct']):.1f}%**.",
-                    severity="good",
-                )
-            else:
-                render_insight_card(
-                    "⚖️",
-                    "Spending Stable",
-                    "Your latest invoice is exactly the same as the previous one.",
-                    severity="info",
-                )
-
-        with in3:
-            if kpis["installment_pct"] > INSTALLMENT_BURDEN_WARNING_PCT:
-                render_insight_card(
-                    "💳",
-                    "High Installment Burden",
-                    f"**{kpis['installment_pct']:.1f}%** of your spending is tied up in installments.",
-                    severity="warning",
-                )
-            else:
-                render_insight_card(
-                    "💳",
-                    "Healthy Installment Ratio",
-                    f"Only **{kpis['installment_pct']:.1f}%** of your spending is tied up in "
-                    "installments.",
-                    severity="good",
-                )
-
-        with in4:
-            anomalies = get_spending_anomalies(
-                df_expenses,
-                z_threshold=ANOMALY_Z_THRESHOLD,
-                min_category_tx=ANOMALY_MIN_CATEGORY_TX,
-            )
-            if not anomalies.empty:
-                render_insight_card(
-                    "⚠️",
-                    f"{len(anomalies)} Unusual Transaction(s)",
-                    "Some purchases are well above their category's typical pattern. See the "
-                    "**📈 Trends & Insights** tab for details.",
-                    severity="warning",
-                )
-            else:
-                render_insight_card(
-                    "✅",
-                    "No Anomalies Detected",
-                    "All transactions fall within the expected spending pattern for their category.",
-                    severity="good",
-                )
-
-        with in5:
-            pace = get_month_pace_projection(df_full)
-            if not pace["has_data"]:
-                render_insight_card(
-                    "📆",
-                    "Spending Pace",
-                    "Not enough data yet to project this month's pace.",
-                    severity="info",
-                )
-            elif pace["status"] == "hot":
-                render_insight_card(
-                    "🔥",
-                    "Spending Pace Running Hot",
-                    f"**{pace['current_month']}** is projected to reach "
-                    f"**{format_currency_md(pace['projected_total'])}** "
-                    f"({pace['pace_delta_pct']:+.1f}% vs your recent average).",
-                    severity="warning",
-                )
-            elif pace["status"] == "cold":
-                render_insight_card(
-                    "🧊",
-                    "Spending Pace Running Cold",
-                    f"**{pace['current_month']}** is projected to reach "
-                    f"**{format_currency_md(pace['projected_total'])}** "
-                    f"({pace['pace_delta_pct']:+.1f}% vs your recent average).",
-                    severity="good",
-                )
-            else:
-                render_insight_card(
-                    "📆",
-                    "Spending Pace Normal",
-                    f"**{pace['current_month']}** is tracking close to your recent monthly average "
-                    f"(projected **{format_currency_md(pace['projected_total'])}**).",
-                    severity="info",
-                )
+        for col, insight in zip(
+            st.columns(5), automated_insights(kpis, df_expenses, df_full), strict=True
+        ):
+            with col:
+                _render(insight)
 
     st.write("")
 
@@ -365,83 +203,14 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
             )
             st.caption(f"ℹ️ *{timeline_desc}*")
 
-            df_grouped_month = get_monthly_grouped(df_expenses, group_col=group_col)
-
-            if not df_grouped_month.empty:
-                month_totals = (
-                    df_expenses.groupby(group_col)["cost"]
-                    .sum()
-                    .reset_index()
-                    .sort_values(by=group_col, ascending=True)
-                )
-                sorted_months = sorted(df_expenses[group_col].dropna().unique().tolist())
-                max_y = float(month_totals["cost"].max()) if not month_totals.empty else 100.0
-                month_totals["moving_avg"] = (
-                    month_totals["cost"].rolling(window=3, min_periods=1).mean()
-                )
-
-                if chart_style == "📈 Trend Lines":
-                    fig_bar = px.line(
-                        df_grouped_month,
-                        x=group_col,
-                        y="cost",
-                        color="category_label",
-                        color_discrete_map=CATEGORY_COLOR_MAP,
-                        category_orders={group_col: sorted_months},
-                        markers=True,
-                        labels={
-                            "cost": "Amount (R$)",
-                            group_col: "Month",
-                            "category_label": "Category",
-                        },
-                        hover_data={"cost": ":,.2f"},
-                    )
-                else:
-                    fig_bar = px.bar(
-                        df_grouped_month,
-                        x=group_col,
-                        y="cost",
-                        color="category_label",
-                        color_discrete_map=CATEGORY_COLOR_MAP,
-                        category_orders={group_col: sorted_months},
-                        labels={
-                            "cost": "Amount (R$)",
-                            group_col: "Month",
-                            "category_label": "Category",
-                        },
-                        hover_data={"cost": ":,.2f"},
-                    )
-                    fig_bar.update_layout(barmode="stack")
-
-                add_total_line_trace(
-                    fig_bar,
-                    month_totals[group_col],
-                    month_totals["cost"],
-                    name="Total (Net)",
-                    point_labels=not amounts_hidden(),
-                )
-                fig_bar.add_trace(
-                    go.Scatter(
-                        x=month_totals[group_col],
-                        y=month_totals["moving_avg"],
-                        mode="lines",
-                        name="3M Moving Avg",
-                        line={"color": "#FFB74D", "width": 2, "dash": "dashdot"},
-                        opacity=0.85,
-                    )
-                )
-
-                apply_chart_theme(fig_bar, height=460, legend="top")
-                fig_bar.update_layout(
-                    xaxis={
-                        "type": "category",
-                        "categoryorder": "array",
-                        "categoryarray": sorted_months,
-                        "title": "",
-                        "tickangle": -45,
-                    },
-                    yaxis={"title": "Total (R$)", "range": [0, max_y * 1.3]},
-                )
+            fig_bar = build_monthly_evolution_figure(
+                df_expenses,
+                group_col=group_col,
+                chart_style=(
+                    CHART_STYLE_LINES if chart_style == "📈 Trend Lines" else CHART_STYLE_STACKED
+                ),
+            )
+            if fig_bar is not None:
                 st.plotly_chart(fig_bar, use_container_width=True)
 
     with c2:
@@ -452,17 +221,8 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
                 f"Total: {format_currency_br(kpis['total_spent'])}</span>",
                 unsafe_allow_html=True,
             )
-            cat_summary = (
-                df_expenses[df_expenses["cost"] > 0]
-                .groupby(["category", "category_label"])["cost"]
-                .sum()
-                .reset_index()
-            )
-
-            if not cat_summary.empty:
-                fig_cat_bar = build_ranked_bar_chart(
-                    cat_summary, "category_label", "cost", color_map=CATEGORY_COLOR_MAP, height=420
-                )
+            fig_cat_bar = build_category_distribution_figure(df_expenses)
+            if fig_cat_bar is not None:
                 st.plotly_chart(fig_cat_bar, use_container_width=True)
 
     # ------------------------------------
@@ -473,59 +233,13 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     with c3:
         with st.container(border=True):
             st.markdown("#### 🏢 Top 10 Merchants / Expenses")
-            top_merchants = get_top_merchants(df_expenses, top_n=10)
-
-            if not top_merchants.empty:
-                # color each merchant bar with its dominant category's color
-                merchant_color_map = (
-                    {
-                        row["id"]: get_category_color(row["category"])
-                        for _, row in top_merchants.iterrows()
-                    }
-                    if "category" in top_merchants.columns
-                    else None
-                )
-                fig_merchants = build_ranked_bar_chart(
-                    top_merchants,
-                    "id",
-                    "total_spent",
-                    color_map=merchant_color_map,
-                    height=390,
-                )
+            fig_merchants = build_top_merchants_figure(df_expenses, top_n=10)
+            if fig_merchants is not None:
                 st.plotly_chart(fig_merchants, use_container_width=True)
 
     with c4:
         with st.container(border=True):
             st.markdown("#### 📅 Spending Pattern by Day of Week")
-            day_spending = get_day_of_week_spending(df_expenses)
-
-            if not day_spending.empty:
-                peak_day = day_spending.sort_values(by="cost", ascending=False).iloc[0][
-                    "dia_semana"
-                ]
-                bar_colors = build_emphasis_bar_colors(
-                    day_spending["dia_semana"].tolist(), peak_day
-                )
-                max_day_spent = float(day_spending["cost"].max())
-
-                fig_days = px.bar(
-                    day_spending,
-                    x="dia_semana",
-                    y="cost",
-                    text=None
-                    if amounts_hidden()
-                    else [format_currency_br(v) for v in day_spending["cost"]],
-                    labels={"cost": "Total Spent (R$)", "dia_semana": "Day of Week"},
-                )
-                fig_days.update_traces(
-                    marker_color=bar_colors,
-                    textposition="outside",
-                    cliponaxis=False,
-                    textfont={"size": 11},
-                )
-                apply_chart_theme(fig_days, height=390, legend="hidden")
-                fig_days.update_layout(
-                    xaxis={"title": ""},
-                    yaxis={"range": [0, max_day_spent * 1.22], "title": "Total (R$)"},
-                )
+            fig_days = build_day_of_week_figure(df_expenses, height=390)
+            if fig_days is not None:
                 st.plotly_chart(fig_days, use_container_width=True)

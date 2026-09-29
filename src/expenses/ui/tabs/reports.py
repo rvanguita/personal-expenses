@@ -2,7 +2,6 @@ import io
 from datetime import UTC, datetime
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from src.expenses.analytics import (
@@ -10,13 +9,9 @@ from src.expenses.analytics import (
     get_future_installments_projection,
     get_next_month_commitment_metrics,
 )
-from src.expenses.config import CATEGORY_COLOR_MAP, format_currency_br, format_currency_md
-from src.expenses.ui.charts import (
-    add_total_line_trace,
-    amounts_hidden,
-    apply_chart_theme,
-    budget_status_color,
-)
+from src.expenses.config import format_currency_br, format_currency_md
+from src.expenses.ui.figures import build_budget_vs_limit_figure, build_future_by_category_figure
+from src.expenses.ui.insights import executive_summary_insight
 from src.expenses.ui.styles import render_insight_card
 
 
@@ -38,43 +33,8 @@ def render_reports_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
             )
         ].copy()
     )
-    total_gasto = df_exp["cost"].sum()
-    mes_maior_gasto = (
-        df_exp.groupby("year_month")["cost"].sum().idxmax() if not df_exp.empty else "N/A"
-    )
-    valor_maior_mes = df_exp.groupby("year_month")["cost"].sum().max() if not df_exp.empty else 0
-
-    cat_ranking = df_exp.groupby("category_label")["cost"].sum().sort_values(ascending=False)
-    top1_cat = cat_ranking.index[0] if len(cat_ranking) > 0 else "N/A"
-    top1_val = cat_ranking.iloc[0] if len(cat_ranking) > 0 else 0
-    top2_cat = cat_ranking.index[1] if len(cat_ranking) > 1 else "N/A"
-    top2_val = cat_ranking.iloc[1] if len(cat_ranking) > 1 else 0
-
-    # Uncategorized (not_found)
-    not_found_val = df_exp[df_exp["category"] == "not_found"]["cost"].sum()
-    not_found_count = len(df_exp[df_exp["category"] == "not_found"])
-    not_found_pct = (not_found_val / total_gasto * 100) if total_gasto > 0 else 0.0
-
-    if not_found_pct > 15:
-        summary_severity = "warning"
-    elif not_found_pct > 0:
-        summary_severity = "info"
-    else:
-        summary_severity = "good"
-
-    render_insight_card(
-        "📌",
-        "Executive Spending Summary",
-        f"In the analyzed period, total accumulated expenses were **{format_currency_br(total_gasto)}**. "
-        f"The peak spending month was **{mes_maior_gasto}** with a total of "
-        f"**{format_currency_br(valor_maior_mes)}**. Top spending categories were **{top1_cat}** "
-        f"({format_currency_br(top1_val)}, {(top1_val / total_gasto * 100 if total_gasto else 0):.1f}%) "
-        f"and **{top2_cat}** ({format_currency_br(top2_val)}, "
-        f"{(top2_val / total_gasto * 100 if total_gasto else 0):.1f}%). There are **{not_found_count}** "
-        f"transaction(s) without categorization totaling **{format_currency_br(not_found_val)}** "
-        f"({not_found_pct:.1f}% of total).",
-        severity=summary_severity,
-    )
+    summary = executive_summary_insight(df_exp)
+    render_insight_card(summary.icon, summary.title, summary.message, severity=summary.severity)
 
     # ----------------------------------------------------
     # Future Installments & Budget Lock Forecast
@@ -148,101 +108,14 @@ def render_reports_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
         with col_c1:
             with st.container(border=True):
                 st.markdown("##### 📊 Monthly Locked Budget vs Reference Line")
-                df_plot_total = df_projection.copy()
-                within_label = f"Within {format_currency_br(ref_limit)}"
-                over_label = f"Over {format_currency_br(ref_limit)}"
-                df_plot_total["status"] = df_plot_total["cost"].apply(
-                    lambda val: over_label if val > ref_limit else within_label
-                )
-
-                max_plot_cost = (
-                    float(df_plot_total["cost"].max()) if not df_plot_total.empty else 100.0
-                )
-                y_headroom = max(ref_limit, max_plot_cost) * 1.28
-
-                fig_bar_ref = px.bar(
-                    df_plot_total,
-                    x="future_month",
-                    y="cost",
-                    text=None
-                    if amounts_hidden()
-                    else [format_currency_br(v) for v in df_plot_total["cost"]],
-                    labels={
-                        "cost": "Committed Amount (R$)",
-                        "future_month": "Future Month",
-                        "status": "Budget Status",
-                    },
-                    color="status",
-                    color_discrete_map={
-                        within_label: budget_status_color(False),
-                        over_label: budget_status_color(True),
-                    },
-                )
-
-                # Prominent reference line at the budget limit
-                fig_bar_ref.add_hline(
-                    y=ref_limit,
-                    line_dash="dash",
-                    line_color=budget_status_color(True),
-                    line_width=2.5,
-                    annotation_text="Reference Limit"
-                    if amounts_hidden()
-                    else f"Reference Limit: {format_currency_br(ref_limit)}",
-                    annotation_position="top right",
-                    annotation_font_color=budget_status_color(True),
-                    annotation_font_size=11,
-                )
-
-                fig_bar_ref.update_traces(
-                    textposition="outside", cliponaxis=False, textfont={"size": 11}
-                )
-                apply_chart_theme(fig_bar_ref, height=380, legend="bottom")
-                fig_bar_ref.update_layout(
-                    xaxis={"type": "category", "title": ""},
-                    yaxis={"title": "Committed (R$)", "range": [0, y_headroom]},
-                )
+                fig_bar_ref = build_budget_vs_limit_figure(df_projection, ref_limit)
                 st.plotly_chart(fig_bar_ref, use_container_width=True)
 
         with col_c2:
             with st.container(border=True):
                 st.markdown("##### 🏷️ Future Commitments by Category")
-                if not df_details.empty:
-                    df_cat_future = (
-                        df_details.groupby(["future_month", "category_label", "category"])["cost"]
-                        .sum()
-                        .reset_index()
-                    )
-                    future_totals = df_details.groupby("future_month")["cost"].sum().reset_index()
-                    max_future_total = (
-                        float(future_totals["cost"].max()) if not future_totals.empty else 100.0
-                    )
-
-                    fig_cat_future = px.bar(
-                        df_cat_future,
-                        x="future_month",
-                        y="cost",
-                        color="category_label",
-                        color_discrete_map=CATEGORY_COLOR_MAP,
-                        labels={
-                            "cost": "Amount (R$)",
-                            "future_month": "Future Month",
-                            "category_label": "Category",
-                        },
-                    )
-                    fig_cat_future.update_layout(barmode="stack")
-
-                    add_total_line_trace(
-                        fig_cat_future,
-                        future_totals["future_month"],
-                        future_totals["cost"],
-                        name="Total",
-                    )
-
-                    apply_chart_theme(fig_cat_future, height=380, legend="bottom")
-                    fig_cat_future.update_layout(
-                        xaxis={"type": "category", "title": ""},
-                        yaxis={"title": "Total (R$)", "range": [0, max_future_total * 1.25]},
-                    )
+                fig_cat_future = build_future_by_category_figure(df_details)
+                if fig_cat_future is not None:
                     st.plotly_chart(fig_cat_future, use_container_width=True)
 
         # Summary Dataframe & Detailed Breakdown
