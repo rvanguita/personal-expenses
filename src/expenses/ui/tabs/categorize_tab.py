@@ -16,6 +16,7 @@ from src.expenses.database import (
     get_db_engine,
     load_bronze_data,
     load_silver_data,
+    merge_editor_changes,
     save_dataframe_replace,
 )
 from src.expenses.runtime import clear_caches
@@ -36,7 +37,7 @@ def render_categorize_tab(engine=None):
     df_bronze = load_bronze_data()
     if df_bronze.empty:
         st.info(
-            "No records found in the Bronze layer. Please import an invoice in the '📥 Ingest Invoices' tab first."
+            "No records found in the Bronze layer. Please import an invoice in the '📥 Ingest' tab first."
         )
         return
 
@@ -125,7 +126,7 @@ def render_categorize_tab(engine=None):
         btn_run = st.button(
             f"🚀 Run Batch Categorization ({batch_size} IDs) & Sync to Silver",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
         if btn_run:
@@ -197,7 +198,8 @@ def render_categorize_tab(engine=None):
         if cat_filter != "All":
             df_display = df_display[df_display["category"] == cat_filter]
 
-        # Prioritize unclassified / not_found items first, then sort by merchant name (A-Z), then latest dates
+        # Prioritize unclassified / not_found items first, then sort by merchant name (A-Z), then
+        # latest dates. The index is kept so edits can be merged back into the full Silver table.
         df_display["_is_not_found"] = (
             df_display["category"]
             .fillna("")
@@ -205,13 +207,9 @@ def render_categorize_tab(engine=None):
             .str.lower()
             .isin(["not_found", "pending", "none", ""])
         )
-        df_display = (
-            df_display.sort_values(
-                by=["_is_not_found", "id", "date"], ascending=[False, True, False]
-            )
-            .drop(columns=["_is_not_found"])
-            .reset_index(drop=True)
-        )
+        df_display = df_display.sort_values(
+            by=["_is_not_found", "id", "date"], ascending=[False, True, False]
+        ).drop(columns=["_is_not_found"])
 
         df_edited = st.data_editor(
             df_display[
@@ -244,18 +242,26 @@ def render_categorize_tab(engine=None):
                 "motivation": st.column_config.TextColumn("Motivation / Reason"),
                 "categorized_by": st.column_config.TextColumn("Source", disabled=True),
             },
-            use_container_width=True,
-            num_rows="dynamic",
+            width="stretch",
+            hide_index=True,
+            num_rows="fixed",
             key="editor_silver_live",
         )
 
         if st.button("💾 Save Manual Adjustments to Silver Layer", type="secondary"):
             with st.spinner("Persisting edits to Silver database..."):
-                if engine_silver is not None:
-                    save_dataframe_replace(df_edited, engine_silver, MYSQL_DB_SILVER)
+                # Merge into the full table: the editor may show a filtered subset of rows and
+                # columns, and the save replaces the whole Silver table.
+                df_to_save = merge_editor_changes(df_silver_current, df_display, df_edited)
+                saved = engine_silver is not None and save_dataframe_replace(
+                    df_to_save, engine_silver, MYSQL_DB_SILVER
+                )
                 clear_caches()
+            if saved:
                 st.success("Silver layer records successfully updated!")
                 st.rerun()
+            else:
+                st.error("Could not save to the Silver layer; existing records were kept.")
     else:
         st.info(
             "The Silver layer is currently empty. Click the trigger button above to categorize and populate from Bronze."

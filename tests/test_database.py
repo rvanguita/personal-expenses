@@ -11,6 +11,7 @@ from src.expenses.database import (
     load_bronze_data,
     load_raw_data,
     load_silver_data,
+    merge_editor_changes,
     save_dataframe_replace,
 )
 
@@ -111,8 +112,43 @@ def test_bronze_key_cols_and_row_key():
 
 
 def test_save_dataframe_replace_none_engine_noop():
-    save_dataframe_replace(pd.DataFrame(), engine=None)
-    save_dataframe_replace(pd.DataFrame([{"id": "X"}]), engine=None)
+    assert save_dataframe_replace(pd.DataFrame(), engine=None) is False
+    assert save_dataframe_replace(pd.DataFrame([{"id": "X"}]), engine=None) is False
+
+
+def _silver_layer():
+    return pd.DataFrame(
+        {
+            "id": ["A", "B", "C", "D"],
+            "category": ["food", "not_found", "shopping", "not_found"],
+            "source_debt": ["CARD_1", "CARD_2", "CARD_1", "CARD_2"],
+            "source_file": ["f1.csv", "f1.csv", "f2.csv", "f2.csv"],
+        }
+    )
+
+
+def test_merge_editor_changes_keeps_rows_outside_a_filtered_view():
+    full = _silver_layer()
+    view = full[full["category"] == "not_found"].sort_values("id", ascending=False)
+    edited = view[["id", "category"]].copy()
+    edited.loc[edited["id"] == "B", "category"] = "health"
+
+    merged = merge_editor_changes(full, view, edited)
+
+    assert list(merged["id"]) == ["A", "B", "C", "D"]  # nothing dropped, original order
+    assert list(merged["category"]) == ["food", "health", "shopping", "not_found"]
+
+
+def test_merge_editor_changes_preserves_columns_the_editor_hides():
+    full = _silver_layer()
+    edited = full[["id", "category"]].copy()
+    edited["category"] = "travel"
+
+    merged = merge_editor_changes(full, full, edited)
+
+    assert list(merged["category"]) == ["travel"] * 4
+    assert list(merged["source_debt"]) == list(full["source_debt"])
+    assert list(merged["source_file"]) == list(full["source_file"])
 
 
 def test_align_table_columns_none_engine_noop():

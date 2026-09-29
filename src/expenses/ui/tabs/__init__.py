@@ -5,6 +5,7 @@ from src.expenses.ui.tabs.import_tab import render_import_tab
 from src.expenses.ui.tabs.management import render_management_tab
 from src.expenses.ui.tabs.reports import render_reports_tab
 from src.expenses.ui.tabs.trends import render_trends_tab
+from src.expenses.ui.tabs.watchlist import render_watchlist_tab
 
 __all__ = [
     "render_categorize_tab",
@@ -14,4 +15,5 @@ __all__ = [
     "render_management_tab",
     "render_reports_tab",
     "render_trends_tab",
+    "render_watchlist_tab",
 ]
