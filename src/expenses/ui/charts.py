@@ -1,12 +1,16 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import streamlit as st
 
 from src.expenses.config import format_currency_br
 
 # Dark defaults kept as module constants for callers that import them; the helpers below pick the
-# light or dark value from the active Streamlit theme base at figure-build time.
+# light or dark value from the active theme base at figure-build time. The base comes from
+# `chart_context` (any frontend) and otherwise from the Streamlit theme/session.
 GRID_COLOR = "#334155"
 AXIS_TEXT_COLOR = "#F8FAFC"
 
@@ -16,8 +20,35 @@ _TOTAL_LINE_DARK = "#FFFFFF"
 _TOTAL_LINE_LIGHT = "#1F2933"
 
 
-def _is_light_theme() -> bool:
+_theme_override: ContextVar[str | None] = ContextVar("chart_theme_base", default=None)
+_hide_override: ContextVar[bool | None] = ContextVar("chart_hide_amounts", default=None)
+
+
+@contextmanager
+def chart_context(
+    *, theme_base: str | None = None, hide_amounts: bool | None = None
+) -> Iterator[None]:
+    """Sets the theme base ("light"/"dark") and hide-amounts flag for figures built inside the block.
+
+    Context-local, so concurrent requests (e.g. worker threads) never see each
+    other's values. Without it the helpers fall back to the Streamlit theme / session state.
+    """
+    theme_token = _theme_override.set(theme_base)
+    hide_token = _hide_override.set(hide_amounts)
     try:
+        yield
+    finally:
+        _theme_override.reset(theme_token)
+        _hide_override.reset(hide_token)
+
+
+def _is_light_theme() -> bool:
+    override = _theme_override.get()
+    if override is not None:
+        return override == "light"
+    try:
+        import streamlit as st
+
         return st.get_option("theme.base") == "light"
     except Exception:  # noqa: BLE001
         return False
@@ -38,7 +69,12 @@ def total_line_color() -> str:
 def amounts_hidden() -> bool:
     """True when the sidebar 'Hide amounts' toggle is on, so chart builders drop on-plot currency
     text labels (which a full-chart CSS blur doesn't fully obscure)."""
+    override = _hide_override.get()
+    if override is not None:
+        return override
     try:
+        import streamlit as st
+
         return bool(st.session_state.get("hide_amounts", False))
     except Exception:  # noqa: BLE001
         return False
@@ -67,8 +103,8 @@ _LEGEND_TOP = {
 }
 _LEGEND_BOTTOM = {
     "orientation": "h",
-    "yanchor": "bottom",
-    "y": -0.32,
+    "yanchor": "top",
+    "y": -0.2,
     "xanchor": "center",
     "x": 0.5,
     "font": {"size": 11},
@@ -102,6 +138,7 @@ def apply_chart_theme(fig: go.Figure, *, height: int = 380, legend: str = "top")
         layout["legend"] = _LEGEND_TOP
     elif legend == "bottom":
         layout["legend"] = _LEGEND_BOTTOM
+        layout["margin"] = {**layout["margin"], "b": 130}
     elif legend == "hidden":
         layout["showlegend"] = False
     fig.update_layout(**layout)
@@ -113,13 +150,14 @@ def add_total_line_trace(
     x,
     y,
     *,
-    name: str = "Total",
+    name: str | None = None,
     color: str | None = None,
     dash: str = "dash",
     point_labels: bool = False,
 ) -> go.Figure:
     """Overlays a total/reference line. With ``point_labels`` the R$ value is printed above every
     point; otherwise there are no on-plot labels and values are shown on hover."""
+    name = name or "Total"
     if color is None:
         color = total_line_color()
     y_list = list(y)

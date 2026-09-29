@@ -104,7 +104,7 @@ def render_import_tab(engine=None):
                     ),
                     "Status": st.column_config.TextColumn("Status"),
                 },
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -123,9 +123,7 @@ def render_import_tab(engine=None):
                 col_prev1, col_prev2 = st.columns(2)
                 with col_prev1:
                     st.markdown("##### 🧱 Raw Layer Preview")
-                    st.dataframe(
-                        chosen_parsed["df_raw"].head(5), use_container_width=True, hide_index=True
-                    )
+                    st.dataframe(chosen_parsed["df_raw"].head(5), width="stretch", hide_index=True)
 
                 with col_prev2:
                     st.markdown("##### 🥉 Bronze Layer Preview")
@@ -151,7 +149,7 @@ def render_import_tab(engine=None):
                             "source_debt": st.column_config.TextColumn("Cardholder"),
                             "source_file": st.column_config.TextColumn("Source File"),
                         },
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -164,7 +162,7 @@ def render_import_tab(engine=None):
                 else "💾 Ingest Invoice into Raw & Bronze Layers"
             )
 
-            if st.button(btn_label, type="primary", use_container_width=True):
+            if st.button(btn_label, type="primary", width="stretch"):
                 progress_bar = st.progress(0, text="Starting batch ingestion...")
 
                 def _progress(done, total, filename):
@@ -181,7 +179,7 @@ def render_import_tab(engine=None):
                     f"- **Raw Layer**: Added **{res['raw_inserted']:,}** lines.\n"
                     f"- **Bronze Layer**: Added **{res['bronze_inserted']:,}** new transactions "
                     f"(Skipped {res['bronze_skipped']} duplicates).\n\n"
-                    f"👉 Head over to the **🏷️ AI Categorization & Matching** tab to categorize "
+                    f"👉 Head over to the **🏷️ Categorize** tab to categorize "
                     f"new transactions."
                 )
                 if st.button("🔄 Refresh Data View"):

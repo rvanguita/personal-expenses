@@ -221,30 +221,64 @@ def create_medallion_tables(engine=None) -> None:
         )
 
 
-def save_dataframe_replace(df: pd.DataFrame, engine, database_name: str = MYSQL_DB_SILVER) -> None:
-    """Safely and atomically replaces all records in MYSQL_TABLE preserving schema and avoiding MySQL Error 1050."""
+def save_dataframe_replace(df: pd.DataFrame, engine, database_name: str = MYSQL_DB_SILVER) -> bool:
+    """Replaces every row of MYSQL_TABLE in ``engine``'s database with ``df``, atomically.
+
+    Rows are written into a staging copy of the table (same schema via ``CREATE TABLE ... LIKE``)
+    and swapped in with one ``RENAME TABLE``, so a failed insert leaves the existing table intact
+    instead of empty. Returns True on success; a failure is reported through ``notify_error``.
+    """
     if engine is None or df.empty:
-        return
-    try:
-        with engine.connect() as conn:
-            conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {MYSQL_TABLE};"))
-            conn.commit()
-    except Exception:  # noqa: BLE001
-        pass
+        return False
 
     create_medallion_tables()
-
+    staging = f"{MYSQL_TABLE}__staging"
+    previous = f"{MYSQL_TABLE}__previous"
     try:
         with engine.connect() as conn:
-            df.to_sql(MYSQL_TABLE, con=conn, if_exists="append", index=False)
+            conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {staging}, {previous}"))
+            conn.execute(sqlalchemy.text(f"CREATE TABLE {staging} LIKE {MYSQL_TABLE}"))
+            df.to_sql(staging, con=conn, if_exists="append", index=False)
             conn.commit()
-    except Exception:  # noqa: BLE001
+            conn.execute(
+                sqlalchemy.text(
+                    f"RENAME TABLE {MYSQL_TABLE} TO {previous}, {staging} TO {MYSQL_TABLE}"
+                )
+            )
+            conn.execute(sqlalchemy.text(f"DROP TABLE {previous}"))
+            conn.commit()
+        return True
+    except Exception as e:  # noqa: BLE001
+        notify_error(
+            f"Could not replace {database_name}.{MYSQL_TABLE}; existing rows were kept. ({e})"
+        )
         try:
             with engine.connect() as conn:
-                df.to_sql(MYSQL_TABLE, con=conn, if_exists="append", index=False)
+                conn.execute(sqlalchemy.text(f"DROP TABLE IF EXISTS {staging}"))
                 conn.commit()
         except Exception:  # noqa: BLE001
             pass
+        return False
+
+
+def merge_editor_changes(
+    df_full: pd.DataFrame, df_view: pd.DataFrame, df_edited: pd.DataFrame
+) -> pd.DataFrame:
+    """Folds a ``st.data_editor`` result back into the complete layer frame before a save.
+
+    ``df_view`` is the slice that was shown (it must keep ``df_full``'s index labels, e.g. after a
+    search/category filter) and ``df_edited`` the editor's output for it, possibly with only some
+    columns. Rows outside the view are kept unchanged and columns the editor did not show
+    (cardholder, source file, ingest time) are preserved, so saving an edited, filtered view never
+    drops the rest of the table. Row additions/deletions are not supported (``num_rows="fixed"``).
+    """
+    rows = df_edited.index.intersection(df_view.index)
+    edited = df_full.loc[rows].copy()
+    for col in df_edited.columns:
+        if col in edited.columns:
+            edited[col] = df_edited.loc[rows, col]
+    untouched = df_full.drop(index=rows)
+    return pd.concat([untouched, edited]).loc[df_full.index]
 
 
 _BRONZE_KEY_COLS = [
