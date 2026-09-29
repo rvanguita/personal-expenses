@@ -102,6 +102,14 @@ def format_currency_br(val: float | None) -> str:
     return f"-R$ {formatted}" if is_neg else f"R$ {formatted}"
 
 
+def format_currency_pt(val: float | None) -> str:
+    """Formats numeric values as pt-BR currency: R$ 1.234,56 (dot thousands, comma decimals)."""
+    if val is None or pd.isna(val):
+        return "R$ 0,00"
+    body = f"{abs(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"-R$ {body}" if val < 0 else f"R$ {body}"
+
+
 def format_currency_md(val: float | None) -> str:
     """Formats numeric values safely for Streamlit markdown without triggering LaTeX math parsing ($ -> \\$)."""
     return format_currency_br(val).replace("$", "\\$")

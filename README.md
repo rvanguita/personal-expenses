@@ -129,7 +129,7 @@ STREAMLIT_PORT="8503"
 ```bash
 uv run streamlit run main.py
 
-# Dashboard Dash (somente análise; porta 8050 ou DASH_PORT)
+# Dashboard Dash em português (somente análise; porta 8050 ou DASH_PORT)
 uv run python dash_main.py
 ```
 

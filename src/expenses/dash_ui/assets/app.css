@@ -1,0 +1,15 @@
+/* Mantine owns layout and theming; this file only adds what it can't express. */
+.two-col { display: grid; grid-template-columns: var(--cols, 1fr 1fr); gap: var(--mantine-spacing-md); }
+.two-col > * { min-width: 0; }
+@media (max-width: 992px) { .two-col { grid-template-columns: 1fr; } }
+
+.filter-bar { position: sticky; top: 68px; z-index: 50; }
+@media (max-width: 768px) { .filter-bar { position: static; } .nav-links { display: none !important; } }
+
+.graph { width: 100%; }
+.insight-md p { margin: 0; }
+.table-wrap { width: 100%; }
+
+/* Ocultar valores: desfoca todo valor monetário; passar o mouse revela */
+.hide-amounts .money, .hide-amounts .graph { filter: blur(7px); transition: filter .15s ease; }
+.hide-amounts .money:hover, .hide-amounts .graph:hover { filter: none; }
