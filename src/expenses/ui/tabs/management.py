@@ -12,6 +12,7 @@ from src.expenses.database import (
     load_bronze_data,
     load_raw_data,
     load_silver_data,
+    merge_editor_changes,
     save_dataframe_replace,
 )
 from src.expenses.runtime import clear_caches
@@ -89,13 +90,10 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                 .str.lower()
                 .isin(["not_found", "pending", "none", ""])
             )
-            df_for_edit = (
-                df_for_edit.sort_values(
-                    by=["_is_not_found", "id", "date"], ascending=[False, True, False]
-                )
-                .drop(columns=["_is_not_found"])
-                .reset_index(drop=True)
-            )
+            # Keep the index so edits can be merged back into the full Silver table on save.
+            df_for_edit = df_for_edit.sort_values(
+                by=["_is_not_found", "id", "date"], ascending=[False, True, False]
+            ).drop(columns=["_is_not_found"])
 
             unclassified_count = int(
                 df_silver["category"]
@@ -134,18 +132,26 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                     "categorized_by": st.column_config.TextColumn("Source", disabled=True),
                 },
                 width="stretch",
-                num_rows="dynamic",
+                hide_index=True,
+                num_rows="fixed",
                 key="silver_editor",
             )
 
             if st.button("💾 Save Changes to Silver Layer", type="primary", key="btn_save_silver"):
                 with st.spinner("Updating Silver table in MySQL..."):
+                    # The editor hides cardholder / source file / ingest time; merge so the save
+                    # (which replaces the whole table) keeps them.
+                    df_to_save = merge_editor_changes(df_silver, df_for_edit, df_edited)
                     engine_silver = get_db_engine(MYSQL_DB_SILVER)
-                    if engine_silver is not None:
-                        save_dataframe_replace(df_edited, engine_silver, MYSQL_DB_SILVER)
+                    saved = engine_silver is not None and save_dataframe_replace(
+                        df_to_save, engine_silver, MYSQL_DB_SILVER
+                    )
                     clear_caches()
+                if saved:
                     st.success("Silver layer successfully updated!")
                     st.rerun()
+                else:
+                    st.error("Could not save to the Silver layer; existing records were kept.")
         else:
             st.info("Silver table is currently empty. Ingest an invoice via the '📥 Ingest' tab.")
 
