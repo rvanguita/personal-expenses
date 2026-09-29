@@ -1,24 +1,12 @@
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-from src.expenses.analytics import get_category_momentum, get_day_of_week_spending
+from src.expenses.analytics import get_category_momentum
 from src.expenses.config import CATEGORY_CONFIG, DAY_OF_WEEK_LABELS_PT, format_currency_br
-from src.expenses.ui.charts import (
-    add_total_line_trace,
-    amounts_hidden,
-    apply_chart_theme,
-    build_emphasis_bar_colors,
-    build_ranked_bar_chart,
-)
+from src.expenses.ui.charts import build_ranked_bar_chart
+from src.expenses.ui.figures import build_category_monthly_figure, build_day_of_week_figure
+from src.expenses.ui.insights import category_momentum_insight
 from src.expenses.ui.styles import render_insight_card
-
-_MOMENTUM_META = {
-    "rising": {"icon": "📈", "severity": "warning", "verb": "trending up"},
-    "falling": {"icon": "📉", "severity": "good", "verb": "trending down"},
-    "stable": {"icon": "➡️", "severity": "info", "verb": "stable"},
-}
 
 
 def render_category_tab(df_filtered: pd.DataFrame):
@@ -131,15 +119,10 @@ def render_category_tab(df_filtered: pd.DataFrame):
     momentum_df = get_category_momentum(df_filtered, window=3)
     cat_momentum = momentum_df[momentum_df["category"] == selected_detail_cat]
     if not cat_momentum.empty:
-        m = cat_momentum.iloc[0]
-        meta = _MOMENTUM_META[m["direction"]]
-        render_insight_card(
-            meta["icon"],
-            f"{CATEGORY_CONFIG[selected_detail_cat]['label']} is {meta['verb']}",
-            f"Changed **{m['pct_change_over_window']:+.1f}%** over the last 3 months (now "
-            f"**{format_currency_br(m['last_month_value'])}**/month).",
-            severity=meta["severity"],
+        insight = category_momentum_insight(
+            cat_momentum.iloc[0], CATEGORY_CONFIG[selected_detail_cat]["label"]
         )
+        render_insight_card(insight.icon, insight.title, insight.message, severity=insight.severity)
 
     # Calculate Peak Day of Month, Peak Day of Week, and Highest Single Date
     peak_date_str = "N/A"
@@ -178,38 +161,12 @@ def render_category_tab(df_filtered: pd.DataFrame):
     with col_cat_left:
         with st.container(border=True):
             st.markdown(f"#### Monthly History: {CATEGORY_CONFIG[selected_detail_cat]['label']}")
-            cat_monthly = (
-                df_cat_exp.groupby("year_month")["cost"]
-                .sum()
-                .reset_index()
-                .sort_values(by="year_month", ascending=True)
+            fig_cat_time = build_category_monthly_figure(
+                df_cat_exp,
+                CATEGORY_CONFIG[selected_detail_cat]["label"],
+                CATEGORY_CONFIG[selected_detail_cat]["color"],
             )
-
-            if not cat_monthly.empty:
-                sorted_cat_months = cat_monthly["year_month"].tolist()
-                max_cat_y = float(cat_monthly["cost"].max())
-                cat_color = CATEGORY_CONFIG[selected_detail_cat]["color"]
-
-                fig_cat_time = go.Figure()
-                add_total_line_trace(
-                    fig_cat_time,
-                    cat_monthly["year_month"],
-                    cat_monthly["cost"],
-                    name=CATEGORY_CONFIG[selected_detail_cat]["label"],
-                    color=cat_color,
-                    dash="solid",
-                )
-                apply_chart_theme(fig_cat_time, height=350, legend="hidden")
-                fig_cat_time.update_layout(
-                    xaxis={
-                        "type": "category",
-                        "categoryorder": "array",
-                        "categoryarray": sorted_cat_months,
-                        "title": "",
-                        "tickangle": -45,
-                    },
-                    yaxis={"title": "Amount (R$)", "range": [0, max_cat_y * 1.25]},
-                )
+            if fig_cat_time is not None:
                 st.plotly_chart(fig_cat_time, use_container_width=True)
 
     with col_cat_right:
@@ -280,37 +237,8 @@ def render_category_tab(df_filtered: pd.DataFrame):
     with col_dw_left:
         with st.container(border=True):
             st.markdown("##### 📊 Spending Pattern by Day of Week (Chart)")
-            day_spending = get_day_of_week_spending(df_cat_exp)
-
-            if not day_spending.empty:
-                peak_day = day_spending.sort_values(by="cost", ascending=False).iloc[0][
-                    "dia_semana"
-                ]
-                bar_colors = build_emphasis_bar_colors(
-                    day_spending["dia_semana"].tolist(), peak_day
-                )
-                max_day_spent = float(day_spending["cost"].max())
-
-                fig_days = px.bar(
-                    day_spending,
-                    x="dia_semana",
-                    y="cost",
-                    text=None
-                    if amounts_hidden()
-                    else [format_currency_br(v) for v in day_spending["cost"]],
-                    labels={"cost": "Total Spent (R$)", "dia_semana": "Day of Week"},
-                )
-                fig_days.update_traces(
-                    marker_color=bar_colors,
-                    textposition="outside",
-                    cliponaxis=False,
-                    textfont={"size": 11},
-                )
-                apply_chart_theme(fig_days, height=340, legend="hidden")
-                fig_days.update_layout(
-                    xaxis={"title": ""},
-                    yaxis={"range": [0, max_day_spent * 1.25], "title": "Total (R$)"},
-                )
+            fig_days = build_day_of_week_figure(df_cat_exp, height=340, headroom=1.25)
+            if fig_days is not None:
                 st.plotly_chart(fig_days, use_container_width=True)
 
     with col_dw_right:
