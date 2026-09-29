@@ -34,3 +34,11 @@ def test_build_ranked_bar_chart_drops_labels_when_amounts_hidden(monkeypatch):
     monkeypatch.setattr(charts, "amounts_hidden", lambda: True)
     fig = build_ranked_bar_chart(_ranked_df(), "id", "cost")
     assert not fig.data[0].text
+
+
+def test_chart_context_overrides_theme_and_amounts():
+    df = pd.DataFrame({"id": ["A", "B"], "cost": [1.0, 2.0]})
+    with charts.chart_context(theme_base="light", hide_amounts=True):
+        fig = build_ranked_bar_chart(df, "id", "cost")
+    assert fig.layout.font.color == "#1F2933"
+    assert not fig.data[0].text

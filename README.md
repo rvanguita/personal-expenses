@@ -128,9 +128,6 @@ STREAMLIT_PORT="8503"
 
 ```bash
 uv run streamlit run main.py
-
-# Dashboard Dash em português (somente análise; porta 8050 ou DASH_PORT)
-uv run python dash_main.py
 ```
 
 O Streamlit estará disponível em `http://localhost:8503`.

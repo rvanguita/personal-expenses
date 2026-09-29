@@ -1,4 +1,3 @@
-import calendar
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -7,11 +6,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from src.expenses.config import format_currency_br, format_currency_pt
+from src.expenses.config import format_currency_br
 
 # Dark defaults kept as module constants for callers that import them; the helpers below pick the
 # light or dark value from the active theme base at figure-build time. The base comes from
-# `chart_context` (any frontend, e.g. Dash) and otherwise from the Streamlit theme/session.
+# `chart_context` (any frontend) and otherwise from the Streamlit theme/session.
 GRID_COLOR = "#334155"
 AXIS_TEXT_COLOR = "#F8FAFC"
 
@@ -23,86 +22,22 @@ _TOTAL_LINE_LIGHT = "#1F2933"
 
 _theme_override: ContextVar[str | None] = ContextVar("chart_theme_base", default=None)
 _hide_override: ContextVar[bool | None] = ContextVar("chart_hide_amounts", default=None)
-_lang_override: ContextVar[str] = ContextVar("chart_lang", default="en")
-
-# Chart-internal strings (axis titles, legend names) translated when ``chart_context(lang="pt")``.
-_PT = {
-    "Total (Net)": "Total (líquido)",
-    "3M Moving Avg": "Média móvel 3M",
-    "3-Month Moving Avg": "Média móvel 3M",
-    "Amount (R$)": "Valor (R$)",
-    "Total (R$)": "Total (R$)",
-    "Total Spent (R$)": "Total gasto (R$)",
-    "Month": "Mês",
-    "Category": "Categoria",
-    "Day of Week": "Dia da semana",
-    "Net Monthly Spend": "Gasto líquido mensal",
-    "Previous": "Anterior",
-    "Current": "Atual",
-    "Committed Amount (R$)": "Valor comprometido (R$)",
-    "Committed (R$)": "Comprometido (R$)",
-    "Future Month": "Mês futuro",
-    "Budget Status": "Situação do orçamento",
-    "Within": "Dentro de",
-    "Over": "Acima de",
-    "Reference Limit": "Limite de referência",
-    "Total": "Total",
-    **dict(
-        zip(
-            calendar.month_name[1:],
-            [
-                "Janeiro",
-                "Fevereiro",
-                "Março",
-                "Abril",
-                "Maio",
-                "Junho",
-                "Julho",
-                "Agosto",
-                "Setembro",
-                "Outubro",
-                "Novembro",
-                "Dezembro",
-            ],
-            strict=True,
-        )
-    ),
-    **dict(
-        zip(
-            calendar.day_name,
-            ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"],
-            strict=True,
-        )
-    ),
-}
-
-
-def money(val: float | None) -> str:
-    """Currency text for on-plot labels, in the active ``chart_context`` language's format."""
-    return format_currency_pt(val) if _lang_override.get() == "pt" else format_currency_br(val)
-
-
-def tr(text: str) -> str:
-    """Translates a chart string for the active ``chart_context`` language (identity for "en")."""
-    return _PT.get(text, text) if _lang_override.get() == "pt" else text
 
 
 @contextmanager
 def chart_context(
-    *, theme_base: str | None = None, hide_amounts: bool | None = None, lang: str = "en"
+    *, theme_base: str | None = None, hide_amounts: bool | None = None
 ) -> Iterator[None]:
     """Sets the theme base ("light"/"dark") and hide-amounts flag for figures built inside the block.
 
-    Context-local, so concurrent requests (Dash callbacks run on worker threads) never see each
+    Context-local, so concurrent requests (e.g. worker threads) never see each
     other's values. Without it the helpers fall back to the Streamlit theme / session state.
     """
     theme_token = _theme_override.set(theme_base)
     hide_token = _hide_override.set(hide_amounts)
-    lang_token = _lang_override.set(lang)
     try:
         yield
     finally:
-        _lang_override.reset(lang_token)
         _theme_override.reset(theme_token)
         _hide_override.reset(hide_token)
 
@@ -181,7 +116,6 @@ def apply_chart_theme(fig: go.Figure, *, height: int = 380, legend: str = "top")
     grid = grid_color()
     axis_text = axis_text_color()
     layout: dict = {
-        "separators": ",." if _lang_override.get() == "pt" else ".,",
         "height": height,
         "margin": {"l": 10, "r": 15, "t": 30, "b": 45},
         # Transparent so the figure inherits the themed Streamlit container background (light or
@@ -223,7 +157,7 @@ def add_total_line_trace(
 ) -> go.Figure:
     """Overlays a total/reference line. With ``point_labels`` the R$ value is printed above every
     point; otherwise there are no on-plot labels and values are shown on hover."""
-    name = tr(name or "Total")
+    name = name or "Total"
     if color is None:
         color = total_line_color()
     y_list = list(y)
@@ -236,7 +170,7 @@ def add_total_line_trace(
             name=name,
             line={"color": color, "width": 2.5, "dash": dash},
             marker={"size": 6, "color": color},
-            text=[money(v) for v in y_list] if point_labels else None,
+            text=[format_currency_br(v) for v in y_list] if point_labels else None,
             textposition="top center",
             textfont={"size": 11, "color": color},
             hovertemplate="R$ %{y:,.2f}<extra>%{fullData.name}</extra>",
@@ -278,7 +212,7 @@ def build_ranked_bar_chart(
         x=value_col,
         y=label_col,
         orientation="h",
-        text=None if amounts_hidden() else [money(v) for v in df_sorted[value_col]],
+        text=None if amounts_hidden() else [format_currency_br(v) for v in df_sorted[value_col]],
     )
     fig.update_traces(
         marker_color=bar_colors,

@@ -1,4 +1,4 @@
-"""Framework-agnostic Plotly figure builders shared by the Streamlit and Dash frontends.
+"""Framework-agnostic Plotly figure builders used by the Streamlit frontend.
 
 Every builder takes already-filtered frames (as produced by ``analytics`` / ``filters``) and
 returns a themed ``go.Figure`` — or ``None`` when there is nothing to plot. Theme and
@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from src.expenses.analytics import get_day_of_week_spending, get_monthly_grouped, get_top_merchants
 from src.expenses.config import (
     CATEGORY_COLOR_MAP,
+    format_currency_br,
     get_category_color,
 )
 from src.expenses.ui.charts import (
@@ -23,8 +24,6 @@ from src.expenses.ui.charts import (
     budget_status_color,
     build_emphasis_bar_colors,
     build_ranked_bar_chart,
-    money,
-    tr,
 )
 
 CHART_STYLE_STACKED = "stacked"
@@ -59,9 +58,9 @@ def build_monthly_evolution_figure(
         "color_discrete_map": CATEGORY_COLOR_MAP,
         "category_orders": {group_col: sorted_months},
         "labels": {
-            "cost": tr("Amount (R$)"),
-            "category_label": tr("Category"),
-            group_col: tr("Month"),
+            "cost": "Amount (R$)",
+            "category_label": "Category",
+            group_col: "Month",
         },
         "hover_data": {"cost": ":,.2f"},
     }
@@ -83,7 +82,7 @@ def build_monthly_evolution_figure(
             x=month_totals[group_col],
             y=month_totals["moving_avg"],
             mode="lines",
-            name=tr("3M Moving Avg"),
+            name="3M Moving Avg",
             line={"color": "#FFB74D", "width": 2, "dash": "dashdot"},
             opacity=0.85,
         )
@@ -97,7 +96,7 @@ def build_monthly_evolution_figure(
             "title": "",
             "tickangle": -45,
         },
-        yaxis={"title": tr("Total (R$)"), "range": [0, max_y * 1.3]},
+        yaxis={"title": "Total (R$)", "range": [0, max_y * 1.3]},
     )
     return fig
 
@@ -146,15 +145,13 @@ def build_day_of_week_figure(
     peak_day = day_spending.sort_values(by="cost", ascending=False).iloc[0]["dia_semana"]
     max_day_spent = float(day_spending["cost"].max())
 
-    day_spending = day_spending.assign(dia_semana=day_spending["dia_semana"].map(tr))
-    peak_day = tr(peak_day)
     bar_colors = build_emphasis_bar_colors(day_spending["dia_semana"].tolist(), peak_day)
     fig = px.bar(
         day_spending,
         x="dia_semana",
         y="cost",
-        text=None if amounts_hidden() else [money(v) for v in day_spending["cost"]],
-        labels={"cost": tr("Total Spent (R$)"), "dia_semana": tr("Day of Week")},
+        text=None if amounts_hidden() else [format_currency_br(v) for v in day_spending["cost"]],
+        labels={"cost": "Total Spent (R$)", "dia_semana": "Day of Week"},
     )
     fig.update_traces(
         marker_color=bar_colors, textposition="outside", cliponaxis=False, textfont={"size": 11}
@@ -162,7 +159,7 @@ def build_day_of_week_figure(
     apply_chart_theme(fig, height=height, legend="hidden")
     fig.update_layout(
         xaxis={"title": ""},
-        yaxis={"range": [0, max_day_spent * headroom], "title": tr("Total (R$)")},
+        yaxis={"range": [0, max_day_spent * headroom], "title": "Total (R$)"},
     )
     return fig
 
@@ -197,7 +194,7 @@ def build_category_monthly_figure(
             "title": "",
             "tickangle": -45,
         },
-        yaxis={"title": tr("Amount (R$)"), "range": [0, float(cat_monthly["cost"].max()) * 1.25]},
+        yaxis={"title": "Amount (R$)", "range": [0, float(cat_monthly["cost"].max()) * 1.25]},
     )
     return fig
 
@@ -212,7 +209,7 @@ def build_trend_figure(ma_df: pd.DataFrame, height: int = 320) -> go.Figure | No
             x=ma_df["year_month"],
             y=ma_df["cost"],
             mode="lines+markers",
-            name=tr("Net Monthly Spend"),
+            name="Net Monthly Spend",
             line={"color": "#4FC3F7", "width": 2.5},
             marker={"size": 7},
         )
@@ -222,14 +219,14 @@ def build_trend_figure(ma_df: pd.DataFrame, height: int = 320) -> go.Figure | No
             x=ma_df["year_month"],
             y=ma_df["moving_avg"],
             mode="lines",
-            name=tr("3-Month Moving Avg"),
+            name="3-Month Moving Avg",
             line={"color": "#FFB74D", "width": 2.5, "dash": "dash"},
         )
     )
     apply_chart_theme(fig, height=height, legend="top")
     fig.update_layout(
         xaxis={"type": "category", "title": "", "tickangle": -45},
-        yaxis={"title": tr("Amount (R$)")},
+        yaxis={"title": "Amount (R$)"},
     )
     return fig
 
@@ -246,7 +243,7 @@ def build_period_comparison_figure(pop: dict, height: int = 360) -> go.Figure | 
         go.Bar(
             x=by_cat["category_label"],
             y=by_cat["previous"],
-            name=f"{tr('Previous')} ({prev_range})",
+            name=f"Previous ({prev_range})",
             marker_color=EMPHASIS_MUTED,
         )
     )
@@ -254,7 +251,7 @@ def build_period_comparison_figure(pop: dict, height: int = 360) -> go.Figure | 
         go.Bar(
             x=by_cat["category_label"],
             y=by_cat["current"],
-            name=f"{tr('Current')} ({cur_range})",
+            name=f"Current ({cur_range})",
             marker_color=EMPHASIS_ACCENT,
         )
     )
@@ -300,8 +297,8 @@ def build_budget_vs_limit_figure(
         return None
     # The projection is per (month, category); the budget line compares monthly totals.
     df_plot = df_projection.groupby("future_month", as_index=False)["cost"].sum()
-    within_label = f"{tr('Within')} {money(ref_limit)}"
-    over_label = f"{tr('Over')} {money(ref_limit)}"
+    within_label = f"Within {format_currency_br(ref_limit)}"
+    over_label = f"Over {format_currency_br(ref_limit)}"
     df_plot["status"] = df_plot["cost"].apply(
         lambda val: over_label if val > ref_limit else within_label
     )
@@ -311,11 +308,11 @@ def build_budget_vs_limit_figure(
         df_plot,
         x="future_month",
         y="cost",
-        text=None if amounts_hidden() else [money(v) for v in df_plot["cost"]],
+        text=None if amounts_hidden() else [format_currency_br(v) for v in df_plot["cost"]],
         labels={
-            "cost": tr("Committed Amount (R$)"),
-            "future_month": tr("Future Month"),
-            "status": tr("Budget Status"),
+            "cost": "Committed Amount (R$)",
+            "future_month": "Future Month",
+            "status": "Budget Status",
         },
         color="status",
         color_discrete_map={
@@ -328,9 +325,9 @@ def build_budget_vs_limit_figure(
         line_dash="dash",
         line_color=budget_status_color(True),
         line_width=2.5,
-        annotation_text=tr("Reference Limit")
+        annotation_text="Reference Limit"
         if amounts_hidden()
-        else f"{tr('Reference Limit')}: {money(ref_limit)}",
+        else f"Reference Limit: {format_currency_br(ref_limit)}",
         annotation_position="top right",
         annotation_font_color=budget_status_color(True),
         annotation_font_size=11,
@@ -339,7 +336,7 @@ def build_budget_vs_limit_figure(
     apply_chart_theme(fig, height=height, legend="bottom")
     fig.update_layout(
         xaxis={"type": "category", "title": ""},
-        yaxis={"title": tr("Committed (R$)"), "range": [0, y_headroom]},
+        yaxis={"title": "Committed (R$)", "range": [0, y_headroom]},
     )
     return fig
 
@@ -365,9 +362,9 @@ def build_future_by_category_figure(
         color="category_label",
         color_discrete_map=CATEGORY_COLOR_MAP,
         labels={
-            "cost": tr("Amount (R$)"),
-            "future_month": tr("Future Month"),
-            "category_label": tr("Category"),
+            "cost": "Amount (R$)",
+            "future_month": "Future Month",
+            "category_label": "Category",
         },
     )
     fig.update_layout(barmode="stack")
@@ -375,6 +372,6 @@ def build_future_by_category_figure(
     apply_chart_theme(fig, height=height, legend="bottom")
     fig.update_layout(
         xaxis={"type": "category", "title": ""},
-        yaxis={"title": tr("Total (R$)"), "range": [0, max_future_total * 1.25]},
+        yaxis={"title": "Total (R$)", "range": [0, max_future_total * 1.25]},
     )
     return fig

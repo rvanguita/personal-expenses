@@ -18,21 +18,3 @@ services:
     volumes:
       # Persist the AI category dictionary (grown by the categorization pipeline) into the container
       - ./data:/app/data
-
-  dash:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: expenses:latest
-    container_name: expenses-dash
-    restart: unless-stopped
-    command: ["uv", "run", "python", "dash_main.py"]
-    ports:
-      - "${DASH_PORT:-8050}:8050"
-    env_file:
-      - .env
-    environment:
-      - DASH_HOST=0.0.0.0
-      - DASH_PORT=8050
-    volumes:
-      - ./data:/app/data

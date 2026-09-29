@@ -35,10 +35,6 @@ CATEGORY_LOCAL_PATH = Path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.loc
 # Streamlit Port Configuration
 STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", os.getenv("STREAMLIT_SERVER_PORT", "8503")))
 
-# Dash Frontend Configuration
-DASH_HOST = os.getenv("DASH_HOST", "0.0.0.0")
-DASH_PORT = int(os.getenv("DASH_PORT", "8050"))
-
 # Category metadata, colors, and English labels
 CATEGORY_CONFIG = {
     "food": {"label": "Food & Dining", "color": "#FF9800", "icon": "🍔"},
@@ -100,14 +96,6 @@ def format_currency_br(val: float | None) -> str:
     val_abs = abs(val)
     formatted = f"{val_abs:,.2f}"
     return f"-R$ {formatted}" if is_neg else f"R$ {formatted}"
-
-
-def format_currency_pt(val: float | None) -> str:
-    """Formats numeric values as pt-BR currency: R$ 1.234,56 (dot thousands, comma decimals)."""
-    if val is None or pd.isna(val):
-        return "R$ 0,00"
-    body = f"{abs(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"-R$ {body}" if val < 0 else f"R$ {body}"
 
 
 def format_currency_md(val: float | None) -> str:

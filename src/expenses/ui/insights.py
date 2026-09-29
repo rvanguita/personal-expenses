@@ -1,7 +1,7 @@
 """Framework-agnostic narrative insights (icon / title / markdown message / severity).
 
-Frontends render an ``Insight`` however they like (Streamlit ``render_insight_card``, a Dash
-card). Messages are markdown; currency uses ``format_currency_md`` so ``$`` is pre-escaped.
+Frontends render an ``Insight`` however they like (e.g. Streamlit ``render_insight_card``). Messages
+are markdown; currency uses ``format_currency_md`` so ``$`` is pre-escaped.
 """
 
 from dataclasses import dataclass
