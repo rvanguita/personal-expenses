@@ -320,19 +320,23 @@ def build_budget_vs_limit_figure(
             over_label: budget_status_color(True),
         },
     )
-    fig.add_hline(
-        y=ref_limit,
-        line_dash="dash",
-        line_color=budget_status_color(True),
-        line_width=2.5,
-        annotation_text="Reference Limit"
-        if amounts_hidden()
-        else f"Reference Limit: {format_currency_br(ref_limit)}",
-        annotation_position="top right",
-        annotation_font_color=budget_status_color(True),
-        annotation_font_size=11,
-    )
     fig.update_traces(textposition="outside", cliponaxis=False, textfont={"size": 11})
+    # The limit line is labelled through the legend: an on-plot annotation collides with the
+    # value labels of bars sitting near the line.
+    fig.add_hline(
+        y=ref_limit, line_dash="dash", line_color=budget_status_color(True), line_width=2.5
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[None],
+            y=[None],
+            mode="lines",
+            line={"color": budget_status_color(True), "dash": "dash", "width": 2.5},
+            name="Reference limit"
+            if amounts_hidden()
+            else f"Reference limit ({format_currency_br(ref_limit)})",
+        )
+    )
     apply_chart_theme(fig, height=height, legend="bottom")
     fig.update_layout(
         xaxis={"type": "category", "title": ""},

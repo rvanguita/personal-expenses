@@ -36,7 +36,7 @@ def render_categorize_tab(engine=None):
     df_bronze = load_bronze_data()
     if df_bronze.empty:
         st.info(
-            "No records found in the Bronze layer. Please import an invoice in the '📥 Ingest Invoices' tab first."
+            "No records found in the Bronze layer. Please import an invoice in the '📥 Ingest' tab first."
         )
         return
 
@@ -125,7 +125,7 @@ def render_categorize_tab(engine=None):
         btn_run = st.button(
             f"🚀 Run Batch Categorization ({batch_size} IDs) & Sync to Silver",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
         if btn_run:
@@ -244,7 +244,7 @@ def render_categorize_tab(engine=None):
                 "motivation": st.column_config.TextColumn("Motivation / Reason"),
                 "categorized_by": st.column_config.TextColumn("Source", disabled=True),
             },
-            use_container_width=True,
+            width="stretch",
             num_rows="dynamic",
             key="editor_silver_live",
         )
