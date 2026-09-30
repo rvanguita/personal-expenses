@@ -8,6 +8,7 @@ from dash import Dash, Input, Output, State, dcc, html, no_update
 from src.expenses.dash_app.analyses import (
     category_view,
     export_frame,
+    habits_view,
     reports_view,
     trends_view,
     watchlist_view,
@@ -20,7 +21,13 @@ from src.expenses.dash_app.figures import (
     monthly_figure,
 )
 from src.expenses.dash_app.layout import FIGURE_IDS, kpi_card, purchases_table
-from src.expenses.dash_app.pages import category_page, reports_page, trends_page, watchlist_page
+from src.expenses.dash_app.pages import (
+    category_page,
+    habits_page,
+    reports_page,
+    trends_page,
+    watchlist_page,
+)
 
 FILTERS = (Input("f-period", "value"), Input("f-holders", "value"), Input("f-categories", "value"))
 
@@ -49,9 +56,11 @@ def update_dashboard(
 
 
 def render_tab(tab: str, df_full: pd.DataFrame, period, holders, categories) -> list:
-    """Body of a secondary tab (``trends`` / ``watchlist`` / ``reports``)."""
+    """Body of a secondary tab (``trends`` / ``habits`` / ``watchlist`` / ``reports``)."""
     if tab == "trends":
         return trends_page(trends_view(df_full, period, holders, categories))
+    if tab == "habits":
+        return habits_page(habits_view(df_full, period, holders, categories))
     if tab == "watchlist":
         return watchlist_page(watchlist_view(df_full, period, holders, categories))
     if tab == "reports":
@@ -77,7 +86,7 @@ def register_callbacks(app: Dash, loader: Callable[[], pd.DataFrame]) -> None:
     def _overview(period, holders, categories):
         return update_dashboard(loader(), period, holders, categories)
 
-    for tab in ("trends", "watchlist", "reports"):
+    for tab in ("trends", "habits", "watchlist", "reports"):
 
         @app.callback(Output(f"{tab}-content", "children"), Input("tabs", "value"), *FILTERS)
         def _secondary(active, period, holders, categories, _tab=tab):

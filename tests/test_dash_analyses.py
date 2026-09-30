@@ -7,9 +7,13 @@ from dash import dcc
 
 from src.expenses.analytics import get_recurring_merchants
 from src.expenses.dash_app.analyses import (
+    TICKET_LABELS,
+    category_month_matrix,
     category_options,
     category_view,
     export_frame,
+    habits_view,
+    new_merchants,
     reports_view,
     trends_view,
     watchlist_view,
@@ -79,7 +83,7 @@ def test_category_view_defaults_to_largest_and_respects_choice(silver_history_df
     default = category_view(silver_history_df, "All History")
     assert default["selected"] == options[0][0]
     food = category_view(silver_history_df, "All History", selected="food")
-    assert food["selected"] == "food" and food["label"] == "Food & Dining"
+    assert food["selected"] == "food" and food["label"] == "Alimentação"
     assert food["count"] > 0 and food["avg_ticket"] == pytest.approx(food["total"] / food["count"])
     assert food["history"]["year_month"].is_monotonic_increasing
     assert len(food["largest"]) <= 10
@@ -114,7 +118,7 @@ def test_export_frame(silver_history_df):
     assert export_frame(pd.DataFrame()).empty
 
 
-@pytest.mark.parametrize("tab", ["trends", "watchlist", "reports"])
+@pytest.mark.parametrize("tab", ["trends", "habits", "watchlist", "reports"])
 def test_tabs_render_with_data(silver_history_df, tab):
     body = render_tab(tab, silver_history_df, "Last 6 months", None, None)
     assert body
@@ -122,12 +126,12 @@ def test_tabs_render_with_data(silver_history_df, tab):
     assert bool(figures) == (tab != "watchlist"), tab  # Atenção is tables only
     for fig in figures:
         for trace in fig.data:
-            marker = getattr(trace.marker, "color", None)
+            marker = getattr(getattr(trace, "marker", None), "color", None)
             colors = set(marker) if isinstance(marker, list | tuple) else {marker}
             assert colors - {None} <= set(PALETTE), (tab, trace.name)
 
 
-@pytest.mark.parametrize("tab", ["trends", "watchlist", "reports"])
+@pytest.mark.parametrize("tab", ["trends", "habits", "watchlist", "reports"])
 def test_tabs_render_without_data(tab):
     assert render_tab(tab, pd.DataFrame(), None, [], []) is not None
 
@@ -147,3 +151,52 @@ def test_secondary_figures_empty_states():
     assert isinstance(
         category_history_figure(pd.DataFrame(columns=["year_month", "cost"]), "food"), go.Figure
     )
+
+
+def test_habits_view(silver_history_df):
+    view = habits_view(silver_history_df, "Last 6 months")
+    assert not view["is_empty"]
+    purchases = slice_data(silver_history_df, "Last 6 months").df
+    purchases = purchases[purchases["cost"] > 0]
+    assert view["total"] == pytest.approx(purchases["cost"].sum())
+    assert view["count"] == len(purchases)
+    # Every purchase lands in exactly one band / weekday / payment kind.
+    assert view["bands"]["band"].tolist() == TICKET_LABELS
+    assert view["bands"]["tx"].sum() == view["count"]
+    assert view["bands"]["share"].sum() == pytest.approx(100)
+    assert view["weekday"]["tx"].sum() == view["count"]
+    assert view["weekday"]["day"].tolist()[0] == "Segunda"
+    assert view["split"].to_numpy().sum() == pytest.approx(view["total"])
+    assert view["holders"].to_numpy().sum() == pytest.approx(view["total"])
+    assert set(view["holders"].columns) == {"CARDHOLDER_A", "CARDHOLDER_B"}
+    assert 0 < view["installment_share"] < 100
+    assert 0 < view["top10_share"] <= 100
+    assert 1 <= view["pareto_n"] <= view["merchants"]
+    assert habits_view(pd.DataFrame())["is_empty"]
+
+
+def test_category_month_matrix(silver_history_df):
+    sliced = slice_data(silver_history_df, "Last 6 months")
+    matrix = category_month_matrix(sliced.df, sliced.months)
+    assert list(matrix.columns) == sliced.months
+    assert matrix.sum(axis=1).is_monotonic_decreasing
+    assert "Alimentação" in matrix.index
+    assert category_month_matrix(pd.DataFrame(), []).empty
+
+
+def test_new_merchants(silver_history_df):
+    extra = silver_history_df.iloc[[0]].copy()
+    extra[["id", "date", "date_buy", "year_month", "cost"]] = [
+        "BRAND NEW SHOP",
+        pd.Timestamp("2026-09-05"),
+        pd.Timestamp("2026-09-01"),
+        "2026-09",
+        99.0,
+    ]
+    df = pd.concat([silver_history_df, extra], ignore_index=True)
+    sliced = slice_data(df, "Last 3 months")
+    found = new_merchants(sliced.df, sliced.df_scope, sliced.months)
+    assert "BRAND NEW SHOP" in set(found["id"])
+    assert "DEMO STREAMING" not in set(found["id"])  # billed since the first month
+    everything = slice_data(df, "All History")
+    assert new_merchants(everything.df, everything.df_scope, everything.months).empty

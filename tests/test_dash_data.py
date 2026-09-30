@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.expenses.analytics import calculate_kpis
-from src.expenses.config import CATEGORY_COLOR_MAP
+from src.expenses.config import CATEGORY_COLORS
 from src.expenses.dash_app.data import (
     PERIOD_LABELS,
     build_view,
@@ -18,6 +18,7 @@ from src.expenses.dash_app.figures import (
     merchants_figure,
     monthly_figure,
 )
+from src.expenses.dash_app.fmt import LABEL_PT_TO_KEY
 from src.expenses.dash_app.theme import PALETTE
 from src.expenses.filters import DEFAULT_FILTERS, apply_filters
 
@@ -90,7 +91,7 @@ def test_filter_options(silver_history_df):
     options = filter_options(silver_history_df)
     assert [key for key, _ in options["periods"]] == list(PERIOD_LABELS)
     assert options["holders"] == ["CARDHOLDER_A", "CARDHOLDER_B"]
-    assert ("food", "Food & Dining") in options["categories"]
+    assert ("food", "Alimentação") in options["categories"]
     assert filter_options(pd.DataFrame())["holders"] == []
 
 
@@ -116,7 +117,7 @@ def test_figures_use_only_the_palette(silver_history_df):
 def test_category_bars_use_category_colors(silver_history_df):
     view = build_view(silver_history_df, "All History")
     bar = category_figure(view).data[0]
-    assert list(bar.marker.color) == [CATEGORY_COLOR_MAP[label] for label in bar.y]
+    assert list(bar.marker.color) == [CATEGORY_COLORS[LABEL_PT_TO_KEY[label]] for label in bar.y]
     assert len(set(merchants_figure(view).data[0].marker.color)) > 1
 
 

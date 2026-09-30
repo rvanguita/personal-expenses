@@ -89,6 +89,8 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .pe-kpi-note { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.pe-tone-bad { color: #f87171; }
+.pe-tone-good { color: #34d399; }
 .pe-empty { color: var(--muted); grid-column: 1 / -1; margin: 8px 0; }
 
 /* Tabs */

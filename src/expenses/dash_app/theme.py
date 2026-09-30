@@ -45,7 +45,7 @@ def plotly_layout(height: int = 320, **overrides) -> dict:
         "font": {"family": FONT, "size": 12, "color": MUTED},
         "showlegend": False,
         "hoverlabel": {"bgcolor": CARD, "bordercolor": BORDER, "font": {"color": TEXT}},
-        "separators": ".,",
+        "separators": ",.",  # pt-BR: decimal comma, thousands dot
         "bargap": 0.35,
         "xaxis": {"showgrid": False, "zeroline": False, "linecolor": BORDER, "title": None},
         "yaxis": {

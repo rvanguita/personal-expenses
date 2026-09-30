@@ -17,7 +17,8 @@ from src.expenses.analytics import (
     get_next_month_commitment_metrics,
     get_top_merchants,
 )
-from src.expenses.config import CATEGORY_LABELS, REFERENCE_BUDGET_LIMIT, format_currency_br
+from src.expenses.config import REFERENCE_BUDGET_LIMIT
+from src.expenses.dash_app.fmt import CATEGORY_LABELS_PT, brl, integer, pct
 from src.expenses.filters import DEFAULT_FILTERS, apply_filters, resolve_default_months
 
 # Period choices (keys are `filters.PERIOD_OPTIONS` values understood by resolve_default_months).
@@ -101,12 +102,19 @@ def slice_data(
         "selected_categories": list(categories or []),
     }
     return Slice(
-        df=apply_filters(df_full, {**scope, "selected_months": months}),
-        df_scope=apply_filters(df_full, scope),
+        df=_pt_labels(apply_filters(df_full, {**scope, "selected_months": months})),
+        df_scope=_pt_labels(apply_filters(df_full, scope)),
         months=sorted(months),
         period_label=PERIOD_LABELS[period],
         last_invoice=pd.Timestamp(df_full["date"].max()).strftime("%d/%m/%Y"),
     )
+
+
+def _pt_labels(df: pd.DataFrame) -> pd.DataFrame:
+    """Portuguese category names in ``category_label`` (every table and chart reads it)."""
+    if df.empty:
+        return df
+    return df.assign(category_label=df["category"].map(CATEGORY_LABELS_PT))
 
 
 def filter_options(df_full: pd.DataFrame) -> dict:
@@ -116,7 +124,7 @@ def filter_options(df_full: pd.DataFrame) -> dict:
         return {"periods": periods, "holders": [], "categories": []}
     holders = sorted(h for h in df_full["source_debt"].dropna().unique() if str(h).strip())
     categories = sorted(
-        ((c, CATEGORY_LABELS.get(c, c)) for c in df_full["category"].dropna().unique()),
+        ((c, CATEGORY_LABELS_PT.get(c, c)) for c in df_full["category"].dropna().unique()),
         key=lambda kv: kv[1],
     )
     return {"periods": periods, "holders": holders, "categories": categories}
@@ -191,23 +199,22 @@ def _fill_commitments(view: DashboardView, df_scope: pd.DataFrame) -> None:
 
 
 def kpi_cards(view: DashboardView) -> list[dict]:
-    """The four headline numbers as display-ready dicts: label, value, note, help."""
-    if view.last_month_delta_pct is None:
-        delta = "sem mês anterior"
-    else:
-        arrow = "▲" if view.last_month_delta_pct >= 0 else "▼"
-        delta = f"{arrow} {abs(view.last_month_delta_pct):.1f}% vs mês anterior"
+    """The four headline numbers as display-ready dicts: label, value, note, help, tone.
+
+    ``tone`` colours the note: ``bad`` (spending up / over the limit), ``good``, or ``neutral``.
+    """
+    delta, delta_tone = spend_delta(view.last_month_delta_pct, "vs mês anterior")
     next_label = month_label(view.next_month) if view.next_month else "—"
     return [
         {
             "label": "Gasto no período",
-            "value": format_currency_br(view.total),
-            "note": f"{view.tx_count} compras · {len(view.months)} meses",
+            "value": brl(view.total),
+            "note": f"{integer(view.tx_count)} compras · {len(view.months)} meses",
             "help": "Compras menos estornos; pagamentos de fatura não entram.",
         },
         {
             "label": "Média mensal",
-            "value": format_currency_br(view.avg_monthly),
+            "value": brl(view.avg_monthly),
             "note": view.period_label,
             "help": "Gasto líquido do período dividido pelo número de faturas.",
         },
@@ -215,14 +222,25 @@ def kpi_cards(view: DashboardView) -> list[dict]:
             "label": f"Fatura {month_label(view.last_month)}"
             if view.last_month
             else "Última fatura",
-            "value": format_currency_br(view.last_month_value),
+            "value": brl(view.last_month_value),
             "note": delta,
+            "tone": delta_tone,
             "help": "Último mês do período comparado ao mês imediatamente anterior.",
         },
         {
             "label": f"Parcelas {next_label}",
-            "value": format_currency_br(view.next_month_cost),
-            "note": f"{view.pct_of_limit:.0f}% do limite de {format_currency_br(view.budget_limit)}",
+            "value": brl(view.next_month_cost),
+            "note": f"{pct(view.pct_of_limit, 0)} do limite de {brl(view.budget_limit, 0)}",
+            "tone": "bad" if view.pct_of_limit > 100 else "neutral",
             "help": "Parcelas já contratadas na próxima fatura, contra REFERENCE_BUDGET_LIMIT.",
         },
     ]
+
+
+def spend_delta(change_pct: float | None, suffix: str) -> tuple[str, str]:
+    """('▲ 8,6% vs …', tone) for a spending change: rising spend is ``bad``, falling is ``good``."""
+    if change_pct is None:
+        return "sem base de comparação", "neutral"
+    arrow = "▲" if change_pct >= 0 else "▼"
+    tone = "neutral" if abs(change_pct) < 0.5 else ("bad" if change_pct > 0 else "good")
+    return f"{arrow} {pct(abs(change_pct))} {suffix}", tone

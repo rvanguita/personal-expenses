@@ -8,8 +8,8 @@ The header, filters and tab strip are static. The Overview tab has fixed compone
 import pandas as pd
 from dash import dcc, html
 
-from src.expenses.config import format_currency_br
 from src.expenses.dash_app.data import DEFAULT_PERIOD, PERIOD_LABELS, month_label
+from src.expenses.dash_app.fmt import brl, integer, pct
 from src.expenses.dash_app.theme import category_color
 
 GRAPH_CONFIG = {"displayModeBar": False}
@@ -17,6 +17,7 @@ FIGURE_IDS = ("monthly", "categories", "merchants", "commitments")
 TABS = (
     ("overview", "Visão geral"),
     ("trends", "Tendências"),
+    ("habits", "Hábitos"),
     ("watchlist", "Atenção"),
     ("category", "Categorias"),
     ("reports", "Relatórios"),
@@ -56,7 +57,7 @@ def kpi_card(card: dict) -> html.Div:
         [
             html.P(card["label"], className="pe-kpi-label"),
             html.P(card["value"], className="pe-kpi-value"),
-            html.P(card["note"], className="pe-kpi-note"),
+            html.P(card["note"], className=f"pe-kpi-note pe-tone-{card.get('tone', 'neutral')}"),
         ],
         className="pe-card pe-kpi",
         title=card.get("help", ""),
@@ -77,17 +78,17 @@ def empty(message: str) -> html.P:
 
 def _cell(value, kind: str, record) -> html.Td:
     if kind == "money":
-        return html.Td(format_currency_br(value), className="pe-num")
+        return html.Td(brl(value), className="pe-num")
     if kind == "date":
         return html.Td(pd.Timestamp(value).strftime("%d/%m/%Y") if pd.notna(value) else "—")
     if kind == "month":
         return html.Td(month_label(value))
     if kind == "pct":
-        return html.Td(f"{value:+.1f}%", className="pe-num")
+        return html.Td(pct(value, signed=True), className="pe-num")
     if kind == "rate":
-        return html.Td(f"{value:.1f}", className="pe-num")
+        return html.Td(f"{value:.1f}".replace(".", ","), className="pe-num")
     if kind == "int":
-        return html.Td(f"{int(value)}", className="pe-num")
+        return html.Td(integer(value), className="pe-num")
     if kind == "category":
         dot = html.Span(
             className="pe-dot", style={"backgroundColor": category_color(record["category"])}
@@ -236,6 +237,7 @@ def build_layout(options: dict) -> html.Main:
     bodies = {
         "overview": _overview(),
         "trends": [html.Div(id="trends-content")],
+        "habits": [html.Div(id="habits-content")],
         "watchlist": [html.Div(id="watchlist-content")],
         "category": _category_tab(),
         "reports": _reports_tab(),

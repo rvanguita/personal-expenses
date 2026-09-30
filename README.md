@@ -133,7 +133,7 @@ uv run streamlit run main.py   # app completo em http://localhost:8503
 uv run python dash_app.py      # dashboard Dash (somente leitura) em http://localhost:8050
 ```
 
-O Dash traz as mesmas análises do Streamlit, em português e modo escuro, com as cores de cada categoria: **Visão geral**, **Tendências** (período anterior, ano anterior e momento das categorias), **Atenção** (recorrências, compras atípicas, sem categoria e mudança de frequência), **Categorias** (detalhe de uma categoria) e **Relatórios** (parcelas contra o limite, totais por fatura e download em CSV). Importação, categorização e manutenção continuam no Streamlit.
+O Dash traz as análises do Streamlit e algumas próprias, em português (valores como R$ 1.234,56) e modo escuro, com as cores de cada categoria: **Visão geral**, **Tendências** (período anterior, ano anterior, mapa de calor categoria × mês e momento das categorias), **Hábitos** (à vista vs parcelado, faixas de valor, dia da semana, gasto por titular e concentração nos maiores estabelecimentos), **Atenção** (recorrências, compras atípicas, sem categoria, estabelecimentos novos e mudança de frequência), **Categorias** (detalhe de uma categoria) e **Relatórios** (parcelas contra o limite, totais por fatura e download em CSV). Importação, categorização e manutenção continuam no Streamlit.
 
 ### Executar com Docker
 

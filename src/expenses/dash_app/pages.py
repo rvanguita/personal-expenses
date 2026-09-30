@@ -4,30 +4,28 @@ from dash import html
 
 from src.expenses.config import (
     ANOMALY_Z_THRESHOLD,
-    LABEL_TO_CAT,
     RECURRING_MIN_MONTHS,
-    format_currency_br,
+    UNCATEGORIZED_WARNING_PCT,
 )
 from src.expenses.dash_app.analyses import FREQUENCY_LABELS, MOMENTUM_LABELS, STATUS_LABELS
-from src.expenses.dash_app.data import month_label
+from src.expenses.dash_app.data import month_label, spend_delta
 from src.expenses.dash_app.figures import (
+    bands_figure,
     category_history_figure,
     comparison_figure,
+    heatmap_figure,
+    holders_figure,
     limit_figure,
     ranked_bar_figure,
+    split_figure,
+    weekday_figure,
     yoy_figure,
 )
+from src.expenses.dash_app.fmt import LABEL_PT_TO_KEY, brl, integer, pct
 from src.expenses.dash_app.layout import card, empty, graph, kpi_row, row, table
 from src.expenses.dash_app.theme import category_color
 
 NO_ROWS = "Nenhuma transação para os filtros selecionados."
-
-
-def _delta(pct: float | None, suffix: str) -> str:
-    if pct is None:
-        return "sem base de comparação"
-    arrow = "▲" if pct >= 0 else "▼"
-    return f"{arrow} {abs(pct):.1f}% {suffix}"
 
 
 # --------------------------------------------------------------------------- Tendências
@@ -46,25 +44,26 @@ def trends_page(view: dict) -> list:
         {
             "label": "Tendência",
             "value": view["direction"],
-            "note": f"{format_currency_br(trend['slope_per_month'])} por mês",
+            "note": f"{brl(trend['slope_per_month'])} por mês",
             "help": "Reta ajustada aos totais mensais do período selecionado.",
         },
         {
             "label": "Média 3 meses",
-            "value": format_currency_br(trend["current_avg"]),
+            "value": brl(trend["current_avg"]),
             "note": "últimas três faturas",
             "help": "Média móvel das três faturas mais recentes do período.",
         },
         {
             "label": "Projeção próxima fatura",
-            "value": format_currency_br(trend["projected_next"]),
+            "value": brl(trend["projected_next"]),
             "note": "extrapolada da tendência",
             "help": "Valor da reta de tendência no próximo mês.",
         },
         {
             "label": "Período vs anterior",
-            "value": format_currency_br(pop["current_total"]),
-            "note": _delta(pop["delta_pct"] if pop["has_data"] else None, "vs anterior"),
+            "value": brl(pop["current_total"]),
+            "note": spend_delta(pop["delta_pct"] if pop["has_data"] else None, "vs anterior")[0],
+            "tone": spend_delta(pop["delta_pct"] if pop["has_data"] else None, "")[1],
             "help": f"Período {period_note} contra o mesmo número de meses imediatamente antes.",
         },
     ]
@@ -75,6 +74,11 @@ def trends_page(view: dict) -> list:
             "Por categoria · período atual vs anterior",
             graph(comparison_figure(pop)),
             note="Top 10 categorias do período contra o mesmo número de meses antes dele.",
+        ),
+        card(
+            "Mapa de calor · categoria × mês",
+            graph(heatmap_figure(view["heatmap"])),
+            note="Compras por categoria em cada fatura do período; mais claro = maior gasto.",
         ),
         row(
             card(
@@ -108,8 +112,8 @@ def watchlist_page(view: dict) -> list:
     cards = [
         {
             "label": "Custo fixo mensal",
-            "value": format_currency_br(view["fixed_cost"]),
-            "note": f"≈ {format_currency_br(view['fixed_cost'] * 12)} por ano",
+            "value": brl(view["fixed_cost"]),
+            "note": f"≈ {brl(view['fixed_cost'] * 12)} por ano",
             "help": "Soma da média mensal das cobranças recorrentes.",
         },
         {
@@ -126,8 +130,9 @@ def watchlist_page(view: dict) -> list:
         },
         {
             "label": "Sem categoria",
-            "value": format_currency_br(view["uncategorized_total"]),
-            "note": f"{view['uncategorized_pct']:.1f}% do gasto do período",
+            "value": brl(view["uncategorized_total"]),
+            "note": f"{pct(view['uncategorized_pct'])} do gasto do período",
+            "tone": "bad" if view["uncategorized_pct"] > UNCATEGORIZED_WARNING_PCT else "neutral",
             "help": "Classifique esses estabelecimentos na aba Categorize do Streamlit.",
         },
     ]
@@ -135,7 +140,9 @@ def watchlist_page(view: dict) -> list:
         status_label=lambda d: d["status"].map(STATUS_LABELS),
         category=lambda d: d["category_label"].map(_label_to_key),
     )
-    anomalies = anomalies.assign(z=lambda d: d["z_score"].map(lambda z: f"{z:.1f}σ"))
+    anomalies = anomalies.assign(
+        z=lambda d: d["z_score"].map(lambda z: f"{z:.1f}σ".replace(".", ","))
+    )
     frequency = view["frequency"].assign(
         direction_label=lambda d: d["direction"].map(FREQUENCY_LABELS)
     )
@@ -193,6 +200,23 @@ def watchlist_page(view: dict) -> list:
             ),
         ),
         card(
+            "Estabelecimentos novos no período",
+            table(
+                view["new_merchants"],
+                [
+                    ("Estabelecimento", "id", "text"),
+                    ("Categoria", "category_label", "category"),
+                    ("Primeira compra", "first", "date"),
+                    ("Compras", "tx", "int"),
+                    ("Total", "total", "money"),
+                ],
+                max_rows=15,
+            )
+            if not view["new_merchants"].empty
+            else empty("Nenhum estabelecimento novo (ou o período começa no início do histórico)."),
+            note="Primeira compra de todo o histórico caiu dentro do período selecionado.",
+        ),
+        card(
             "Mudança de frequência",
             table(
                 frequency,
@@ -214,7 +238,7 @@ def watchlist_page(view: dict) -> list:
 
 
 def _label_to_key(label: str) -> str:
-    return LABEL_TO_CAT.get(label, "not_found")
+    return LABEL_PT_TO_KEY.get(label, "not_found")
 
 
 # --------------------------------------------------------------------------- Categorias
@@ -227,25 +251,26 @@ def category_page(view: dict) -> list:
     cards = [
         {
             "label": "Total",
-            "value": format_currency_br(view["total"]),
-            "note": _delta(view["momentum_pct"], "em 3 meses"),
+            "value": brl(view["total"]),
+            "note": spend_delta(view["momentum_pct"], "em 3 meses")[0],
+            "tone": spend_delta(view["momentum_pct"], "")[1],
             "help": "Variação compara o último mês com três meses antes.",
         },
         {
             "label": "Participação",
-            "value": f"{view['share_pct']:.1f}%",
+            "value": pct(view["share_pct"]),
             "note": "do gasto do período",
             "help": "Parcela do gasto (compras positivas) do período nesta categoria.",
         },
         {
             "label": "Compras",
-            "value": str(view["count"]),
+            "value": integer(view["count"]),
             "note": view["label"],
             "help": "Quantidade de compras da categoria no período.",
         },
         {
             "label": "Ticket médio",
-            "value": format_currency_br(view["avg_ticket"]),
+            "value": brl(view["avg_ticket"]),
             "note": "por compra",
             "help": "Total da categoria dividido pelo número de compras.",
         },
@@ -292,29 +317,30 @@ def reports_page(view: dict) -> list:
     metrics, limit = view["metrics"], view["limit"]
     if metrics["has_data"]:
         over = metrics["is_over_limit"]
-        diff = format_currency_br(abs(metrics["diff_from_limit"]))
+        diff = brl(abs(metrics["diff_from_limit"]))
         cards = [
             {
                 "label": f"Parcelas {month_label(metrics['next_month'])}",
-                "value": format_currency_br(metrics["next_month_cost"]),
+                "value": brl(metrics["next_month_cost"]),
                 "note": f"{diff} acima do limite" if over else f"{diff} livres no limite",
+                "tone": "bad" if over else "good",
                 "help": f"{metrics['num_installments']} parcelas já contratadas para a próxima fatura.",
             },
             {
                 "label": "Uso do limite",
-                "value": f"{metrics['pct_of_limit']:.0f}%",
-                "note": f"limite de {format_currency_br(limit)}",
+                "value": pct(metrics["pct_of_limit"], 0),
+                "note": f"limite de {brl(limit)}",
                 "help": "Definido por REFERENCE_BUDGET_LIMIT no .env.",
             },
             {
                 "label": "Total a pagar em parcelas",
-                "value": format_currency_br(metrics["total_future_debt"]),
+                "value": brl(metrics["total_future_debt"]),
                 "note": f"em {metrics['months_count']} meses",
                 "help": f"Última parcela em {month_label(metrics['max_future_month'])}.",
             },
             {
                 "label": "Transações na seleção",
-                "value": f"{view['rows']}",
+                "value": integer(view["rows"]),
                 "note": "exportáveis em CSV abaixo",
                 "help": "Linhas do período e filtros atuais (sem pagamentos de fatura).",
             },
@@ -361,3 +387,66 @@ def reports_page(view: dict) -> list:
 
 def html_scroll(child) -> html.Div:
     return html.Div(child, className="pe-scroll")
+
+
+# --------------------------------------------------------------------------- Hábitos
+
+
+def habits_page(view: dict) -> list:
+    if view["is_empty"]:
+        return [empty(NO_ROWS)]
+    cards = [
+        {
+            "label": "Compras por mês",
+            "value": f"{view['per_month']:.0f}",
+            "note": f"{integer(view['count'])} compras no período",
+            "help": "Número de compras (sem estornos) dividido pelo número de faturas.",
+        },
+        {
+            "label": "Ticket médio",
+            "value": brl(view["avg_ticket"]),
+            "note": f"mediana {brl(view['median_ticket'])}",
+            "help": "Média e mediana do valor por compra; mediana bem abaixo da média indica "
+            "poucas compras grandes puxando o total.",
+        },
+        {
+            "label": "Parcelado",
+            "value": pct(view["installment_share"]),
+            "note": "do valor das compras",
+            "help": "Participação das compras parceladas no valor total do período.",
+        },
+        {
+            "label": "Concentração",
+            "value": pct(view["top10_share"]),
+            "note": f"nos 10 maiores · {view['pareto_n']} de {view['merchants']} fazem 80%",
+            "help": "Quanto do gasto está nos 10 estabelecimentos com maior valor, e quantos "
+            "estabelecimentos somam 80% do gasto.",
+        },
+    ]
+    return [
+        kpi_row(cards),
+        row(
+            card(
+                "À vista vs parcelado",
+                graph(split_figure(view["split"])),
+                note="Valor das compras por fatura, separado pela forma de pagamento.",
+            ),
+            card(
+                "Faixas de valor",
+                graph(bands_figure(view["bands"])),
+                note="Quanto do gasto vem de compras pequenas, médias e grandes.",
+            ),
+        ),
+        row(
+            card(
+                "Dia da semana",
+                graph(weekday_figure(view["weekday"])),
+                note="Pela data da compra; o dia de maior gasto em destaque.",
+            ),
+            card(
+                "Por titular",
+                graph(holders_figure(view["holders"])),
+                note="Compras de cada titular do cartão por fatura.",
+            ),
+        ),
+    ]

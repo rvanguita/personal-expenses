@@ -29,6 +29,7 @@ def test_layout_has_filters_kpis_and_graphs(silver_history_df):
     assert {
         "tabs",
         "trends-content",
+        "habits-content",
         "watchlist-content",
         "category-content",
         "f-category-detail",

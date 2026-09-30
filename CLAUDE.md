@@ -187,14 +187,15 @@ The theme is fixed dark in `.streamlit/config.toml` (same palette as the Dash ap
 ### Dash frontend
 
 `src/expenses/dash_app/` is a read-only app (writes stay in the Streamlit **Data** tab). Header +
-three global filters (period, holders, categories) sit above five `dcc.Tabs`, mirroring the
-Streamlit analyses in pt-BR:
+three global filters (period, holders, categories) sit above six `dcc.Tabs`, covering the
+Streamlit analyses plus a few Dash-only ones, all in pt-BR:
 
 | Tab | View model | Content |
 |---|---|---|
 | Visão geral | `data.build_view` | 4 KPIs, monthly total + 3M avg, category / top-merchant bars, future installments, largest purchases |
-| Tendências | `analyses.trends_view` | trend / 3M avg / projection / period-vs-previous KPIs, category comparison, same months last year, momentum table |
-| Atenção | `analyses.watchlist_view` | fixed cost, recurring charges, outliers, uncategorized, frequency shifts (tables only) |
+| Tendências | `analyses.trends_view` | trend / 3M avg / projection / period-vs-previous KPIs, category comparison, category × month heatmap, same months last year, momentum table |
+| Hábitos | `analyses.habits_view` | purchases/month, ticket (mean + median), installment share, merchant concentration (top 10 + Pareto 80%); single vs installment per month, ticket-size bands, weekday, per cardholder |
+| Atenção | `analyses.watchlist_view` | fixed cost, recurring charges, outliers, uncategorized, merchants new in the period, frequency shifts (tables only) |
 | Categorias | `analyses.category_view` | own category picker (options follow the filters), KPIs, monthly history, merchants, largest purchases |
 | Relatórios | `analyses.reports_view` | installments vs `REFERENCE_BUDGET_LIMIT`, upcoming installments, invoice totals, CSV download (`export_frame`) |
 
@@ -202,6 +203,12 @@ Streamlit analyses in pt-BR:
   `df` = selected period/holders/categories (payments removed), `df_scope` = same holders/categories
   over the full history (installment projections, recurring charges and comparisons need it).
   **Add numbers to the view models, never in callbacks or pages;** only call `analytics.py`.
+- `fmt.py` — pt-BR presentation: `brl()` (`R$ 1.234,56`), `pct()`, `integer()`, Portuguese category
+  names (`CATEGORY_LABELS_PT`, applied to `category_label` inside `slice_data`, so every tab gets
+  them) and weekday names. **Use these in the Dash app, not `config.format_currency_br`** (which
+  keeps the Streamlit app's `R$ 1,234.56`). Plotly uses `separators=",."` for the same format.
+- KPI dicts are `{label, value, note, help, tone}`; `tone` in `bad`/`good`/`neutral` colours the
+  note (`data.spend_delta` makes rising spend `bad`, falling `good`).
 - `figures.py` — Plotly builders; `theme.py` — dark tokens, `plotly_layout()`, `LEGEND_TOP`.
   Category marks use `config.CATEGORY_CONFIG` colors; series use `ACCENT` / `AVERAGE` /
   `COMMITMENT` / `PREVIOUS` / `LIMIT`. Figures may only use `theme.PALETTE` (tested).
@@ -227,7 +234,8 @@ import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules (5 analytic
 `streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
 `silver_history_df` fixture — no database or Gemini API calls are hit. The Dash app is covered by
 `test_dash_data.py` (Overview view model + figure colors), `test_dash_analyses.py` (secondary tab
-view models, rendered bodies, CSV export) and `test_dash_app.py` (layout ids + `update_dashboard`). Shared fixtures
+view models incl. habits / heatmap / new merchants, rendered bodies, CSV export), `test_dash_fmt.py`
+(pt-BR formatting) and `test_dash_app.py` (layout ids + `update_dashboard`). Shared fixtures
 (`sample_raw_csv_content`, `sample_csv_file`, `sample_expenses_df`, `silver_history_df`) live in
 `tests/conftest.py`; extend these rather than duplicating sample data per
 test file. The Silver enrichment lives in the pure `database._shape_silver_frame(df)` helper (called by
