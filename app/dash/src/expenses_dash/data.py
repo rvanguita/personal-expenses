@@ -19,18 +19,18 @@ from expenses.analytics import (
 )
 from expenses.config import REFERENCE_BUDGET_LIMIT
 from expenses.filters import DEFAULT_FILTERS, apply_filters, resolve_default_months
-from expenses_dash.fmt import CATEGORY_LABELS_PT, brl, integer, pct
+from expenses_dash.fmt import CATEGORY_LABELS, brl, integer, pct
 
 # Period choices (keys are `filters.PERIOD_OPTIONS` values understood by resolve_default_months).
 PERIOD_LABELS = {
-    "Last 3 months": "Últimos 3 meses",
-    "Last 6 months": "Últimos 6 meses",
-    "Last 12 months": "Últimos 12 meses",
-    "All History": "Todo o histórico",
+    "Last 3 months": "Last 3 months",
+    "Last 6 months": "Last 6 months",
+    "Last 12 months": "Last 12 months",
+    "All History": "All history",
 }
 DEFAULT_PERIOD = "Last 6 months"
 TOP_N = 10
-_MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def _frame(*columns: str):
@@ -61,10 +61,10 @@ class DashboardView:
 
 
 def month_label(year_month: str) -> str:
-    """'2026-03' -> 'mar/26'."""
+    """'2026-03' -> 'Mar 26'."""
     try:
         year, month = str(year_month).split("-")
-        return f"{_MONTHS_PT[int(month) - 1]}/{year[2:]}"
+        return f"{_MONTHS[int(month) - 1]} {year[2:]}"
     except (ValueError, IndexError):
         return str(year_month)
 
@@ -102,19 +102,19 @@ def slice_data(
         "selected_categories": list(categories or []),
     }
     return Slice(
-        df=_pt_labels(apply_filters(df_full, {**scope, "selected_months": months})),
-        df_scope=_pt_labels(apply_filters(df_full, scope)),
+        df=_category_labels(apply_filters(df_full, {**scope, "selected_months": months})),
+        df_scope=_category_labels(apply_filters(df_full, scope)),
         months=sorted(months),
         period_label=PERIOD_LABELS[period],
-        last_invoice=pd.Timestamp(df_full["date"].max()).strftime("%d/%m/%Y"),
+        last_invoice=pd.Timestamp(df_full["date"].max()).strftime("%Y-%m-%d"),
     )
 
 
-def _pt_labels(df: pd.DataFrame) -> pd.DataFrame:
-    """Portuguese category names in ``category_label`` (every table and chart reads it)."""
+def _category_labels(df: pd.DataFrame) -> pd.DataFrame:
+    """Category display names in ``category_label`` (every table and chart reads it)."""
     if df.empty:
         return df
-    return df.assign(category_label=df["category"].map(CATEGORY_LABELS_PT))
+    return df.assign(category_label=df["category"].map(CATEGORY_LABELS))
 
 
 def filter_options(df_full: pd.DataFrame) -> dict:
@@ -124,7 +124,7 @@ def filter_options(df_full: pd.DataFrame) -> dict:
         return {"periods": periods, "holders": [], "categories": []}
     holders = sorted(h for h in df_full["source_debt"].dropna().unique() if str(h).strip())
     categories = sorted(
-        ((c, CATEGORY_LABELS_PT.get(c, c)) for c in df_full["category"].dropna().unique()),
+        ((c, CATEGORY_LABELS.get(c, c)) for c in df_full["category"].dropna().unique()),
         key=lambda kv: kv[1],
     )
     return {"periods": periods, "holders": holders, "categories": categories}
@@ -203,44 +203,44 @@ def kpi_cards(view: DashboardView) -> list[dict]:
 
     ``tone`` colours the note: ``bad`` (spending up / over the limit), ``good``, or ``neutral``.
     """
-    delta, delta_tone = spend_delta(view.last_month_delta_pct, "vs mês anterior")
+    delta, delta_tone = spend_delta(view.last_month_delta_pct, "vs previous month")
     next_label = month_label(view.next_month) if view.next_month else "—"
     return [
         {
-            "label": "Gasto no período",
+            "label": "Spent in period",
             "value": brl(view.total),
-            "note": f"{integer(view.tx_count)} compras · {len(view.months)} meses",
-            "help": "Compras menos estornos; pagamentos de fatura não entram.",
+            "note": f"{integer(view.tx_count)} purchases · {len(view.months)} months",
+            "help": "Purchases minus refunds; invoice payments are excluded.",
         },
         {
-            "label": "Média mensal",
+            "label": "Monthly average",
             "value": brl(view.avg_monthly),
             "note": view.period_label,
-            "help": "Gasto líquido do período dividido pelo número de faturas.",
+            "help": "Net spend in the period divided by the number of invoices.",
         },
         {
-            "label": f"Fatura {month_label(view.last_month)}"
+            "label": f"Invoice {month_label(view.last_month)}"
             if view.last_month
-            else "Última fatura",
+            else "Latest invoice",
             "value": brl(view.last_month_value),
             "note": delta,
             "tone": delta_tone,
-            "help": "Último mês do período comparado ao mês imediatamente anterior.",
+            "help": "Latest month of the period compared with the month right before it.",
         },
         {
-            "label": f"Parcelas {next_label}",
+            "label": f"Installments {next_label}",
             "value": brl(view.next_month_cost),
-            "note": f"{pct(view.pct_of_limit, 0)} do limite de {brl(view.budget_limit, 0)}",
+            "note": f"{pct(view.pct_of_limit, 0)} of the {brl(view.budget_limit, 0)} limit",
             "tone": "bad" if view.pct_of_limit > 100 else "neutral",
-            "help": "Parcelas já contratadas na próxima fatura, contra REFERENCE_BUDGET_LIMIT.",
+            "help": "Installments already due on the next invoice, against REFERENCE_BUDGET_LIMIT.",
         },
     ]
 
 
 def spend_delta(change_pct: float | None, suffix: str) -> tuple[str, str]:
-    """('▲ 8,6% vs …', tone) for a spending change: rising spend is ``bad``, falling is ``good``."""
+    """('▲ 8.6% vs …', tone) for a spending change: rising spend is ``bad``, falling is ``good``."""
     if change_pct is None:
-        return "sem base de comparação", "neutral"
+        return "no comparison base", "neutral"
     arrow = "▲" if change_pct >= 0 else "▼"
     tone = "neutral" if abs(change_pct) < 0.5 else ("bad" if change_pct > 0 else "good")
     return f"{arrow} {pct(abs(change_pct))} {suffix}", tone

@@ -21,14 +21,14 @@ from expenses_dash.figures import (
     weekday_figure,
     yoy_figure,
 )
-from expenses_dash.fmt import LABEL_PT_TO_KEY, brl, integer, pct
+from expenses_dash.fmt import LABEL_TO_KEY, brl, integer, pct
 from expenses_dash.layout import card, empty, graph, kpi_row, row, table
 from expenses_dash.theme import category_color
 
-NO_ROWS = "Nenhuma transação para os filtros selecionados."
+NO_ROWS = "No transactions for the selected filters."
 
 
-# --------------------------------------------------------------------------- Tendências
+# --------------------------------------------------------------------------- Trends
 
 
 def trends_page(view: dict) -> list:
@@ -38,62 +38,62 @@ def trends_page(view: dict) -> list:
     period_note = (
         f"{month_label(pop['current_months'][0])}–{month_label(pop['current_months'][-1])}"
         if pop["has_data"]
-        else "sem período anterior"
+        else "no previous period"
     )
     cards = [
         {
-            "label": "Tendência",
+            "label": "Trend",
             "value": view["direction"],
-            "note": f"{brl(trend['slope_per_month'])} por mês",
-            "help": "Reta ajustada aos totais mensais do período selecionado.",
+            "note": f"{brl(trend['slope_per_month'])} per month",
+            "help": "Line fitted to the monthly totals of the selected period.",
         },
         {
-            "label": "Média 3 meses",
+            "label": "3-month average",
             "value": brl(trend["current_avg"]),
-            "note": "últimas três faturas",
-            "help": "Média móvel das três faturas mais recentes do período.",
+            "note": "last three invoices",
+            "help": "Moving average of the three latest invoices in the period.",
         },
         {
-            "label": "Projeção próxima fatura",
+            "label": "Next invoice (projected)",
             "value": brl(trend["projected_next"]),
-            "note": "extrapolada da tendência",
-            "help": "Valor da reta de tendência no próximo mês.",
+            "note": "extrapolated from the trend",
+            "help": "Trend line value for next month.",
         },
         {
-            "label": "Período vs anterior",
+            "label": "Period vs previous",
             "value": brl(pop["current_total"]),
-            "note": spend_delta(pop["delta_pct"] if pop["has_data"] else None, "vs anterior")[0],
+            "note": spend_delta(pop["delta_pct"] if pop["has_data"] else None, "vs previous")[0],
             "tone": spend_delta(pop["delta_pct"] if pop["has_data"] else None, "")[1],
-            "help": f"Período {period_note} contra o mesmo número de meses imediatamente antes.",
+            "help": f"Period {period_note} against the same number of months right before it.",
         },
     ]
     momentum = view["momentum"].assign(trend=lambda d: d["direction"].map(MOMENTUM_LABELS))
     return [
         kpi_row(cards),
         card(
-            "Por categoria · período atual vs anterior",
+            "By category · current vs previous period",
             graph(comparison_figure(pop)),
-            note="Top 10 categorias do período contra o mesmo número de meses antes dele.",
+            note="Top 10 categories in the period against the same number of months before it.",
         ),
         card(
-            "Mapa de calor · categoria × mês",
+            "Heatmap · category × month",
             graph(heatmap_figure(view["heatmap"])),
-            note="Compras por categoria em cada fatura do período; mais claro = maior gasto.",
+            note="Purchases per category on each invoice of the period; brighter = more spend.",
         ),
         row(
             card(
-                "Mesmos meses · ano atual vs anterior",
+                "Same months · this year vs last year",
                 graph(yoy_figure(view["yoy"])),
             ),
             card(
-                "Momento das categorias · últimos 3 meses",
+                "Category momentum · last 3 months",
                 table(
                     momentum,
                     [
-                        ("Categoria", "category_label", "category"),
-                        ("Direção", "trend", "text"),
-                        ("Último mês", "last_month_value", "money"),
-                        ("Variação 3M", "pct_change_over_window", "pct"),
+                        ("Category", "category_label", "category"),
+                        ("Direction", "trend", "text"),
+                        ("Last month", "last_month_value", "money"),
+                        ("3-month change", "pct_change_over_window", "pct"),
                     ],
                     max_rows=12,
                 ),
@@ -102,7 +102,7 @@ def trends_page(view: dict) -> list:
     ]
 
 
-# --------------------------------------------------------------------------- Atenção
+# --------------------------------------------------------------------------- Watchlist
 
 
 def watchlist_page(view: dict) -> list:
@@ -111,137 +111,135 @@ def watchlist_page(view: dict) -> list:
     recurring, anomalies = view["recurring"], view["anomalies"]
     cards = [
         {
-            "label": "Custo fixo mensal",
+            "label": "Fixed monthly cost",
             "value": brl(view["fixed_cost"]),
-            "note": f"≈ {brl(view['fixed_cost'] * 12)} por ano",
-            "help": "Soma da média mensal das cobranças recorrentes.",
+            "note": f"≈ {brl(view['fixed_cost'] * 12)} per year",
+            "help": "Sum of the monthly average of recurring charges.",
         },
         {
-            "label": "Cobranças recorrentes",
+            "label": "Recurring charges",
             "value": str(len(recurring)),
-            "note": f"em {RECURRING_MIN_MONTHS}+ meses com valor estável",
-            "help": "Assinaturas, seguros, mensalidades: todo o histórico.",
+            "note": f"billed in {RECURRING_MIN_MONTHS}+ months at a stable amount",
+            "help": "Subscriptions, insurance, memberships — full history.",
         },
         {
-            "label": "Compras atípicas",
+            "label": "Unusual purchases",
             "value": str(len(anomalies)),
-            "note": f"acima de {ANOMALY_Z_THRESHOLD}σ da categoria",
-            "help": "Compras muito acima do valor típico da própria categoria, no período.",
+            "note": f"more than {ANOMALY_Z_THRESHOLD}σ above their category",
+            "help": "Purchases far above the typical amount for their category, in the period.",
         },
         {
-            "label": "Sem categoria",
+            "label": "Uncategorized",
             "value": brl(view["uncategorized_total"]),
-            "note": f"{pct(view['uncategorized_pct'])} do gasto do período",
+            "note": f"{pct(view['uncategorized_pct'])} of spend in the period",
             "tone": "bad" if view["uncategorized_pct"] > UNCATEGORIZED_WARNING_PCT else "neutral",
-            "help": "Classifique esses estabelecimentos na aba Categorize do Streamlit.",
+            "help": "Classify these merchants in the Streamlit Categorize tab.",
         },
     ]
     recurring = recurring.assign(
         status_label=lambda d: d["status"].map(STATUS_LABELS),
         category=lambda d: d["category_label"].map(_label_to_key),
     )
-    anomalies = anomalies.assign(
-        z=lambda d: d["z_score"].map(lambda z: f"{z:.1f}σ".replace(".", ","))
-    )
+    anomalies = anomalies.assign(z=lambda d: d["z_score"].map(lambda z: f"{z:.1f}σ"))
     frequency = view["frequency"].assign(
         direction_label=lambda d: d["direction"].map(FREQUENCY_LABELS)
     )
     return [
         kpi_row(cards),
         card(
-            "Cobranças recorrentes",
+            "Recurring charges",
             table(
                 recurring,
                 [
-                    ("Estabelecimento", "id", "text"),
-                    ("Categoria", "category_label", "category"),
-                    ("Média/mês", "avg_monthly_cost", "money"),
-                    ("Última", "last_amount", "money"),
-                    ("Mês", "last_month", "month"),
-                    ("Meses", "months_count", "int"),
+                    ("Merchant", "id", "text"),
+                    ("Category", "category_label", "category"),
+                    ("Avg / month", "avg_monthly_cost", "money"),
+                    ("Last charge", "last_amount", "money"),
+                    ("Month", "last_month", "month"),
+                    ("Months", "months_count", "int"),
                     ("Status", "status_label", "text"),
                 ],
             )
             if not recurring.empty
-            else empty("Nenhuma cobrança recorrente detectada."),
+            else empty("No recurring charges detected."),
         ),
         row(
             card(
-                "Compras atípicas",
+                "Unusual purchases",
                 table(
                     anomalies,
                     [
-                        ("Data", "date_buy", "date"),
-                        ("Estabelecimento", "id", "text"),
-                        ("Categoria", "category_label", "category"),
-                        ("Valor", "cost", "money"),
-                        ("Média cat.", "category_avg", "money"),
-                        ("Desvio", "z", "text"),
+                        ("Date", "date_buy", "date"),
+                        ("Merchant", "id", "text"),
+                        ("Category", "category_label", "category"),
+                        ("Amount", "cost", "money"),
+                        ("Category avg", "category_avg", "money"),
+                        ("Deviation", "z", "text"),
                     ],
                     max_rows=15,
                 )
                 if not anomalies.empty
-                else empty("Nada fora do padrão no período."),
+                else empty("Nothing unusual in the period."),
             ),
             card(
-                "Sem categoria",
+                "Uncategorized",
                 table(
                     view["uncategorized"],
                     [
-                        ("Estabelecimento", "id", "text"),
-                        ("Compras", "tx", "int"),
+                        ("Merchant", "id", "text"),
+                        ("Purchases", "tx", "int"),
                         ("Total", "total", "money"),
-                        ("Última", "last", "date"),
+                        ("Last purchase", "last", "date"),
                     ],
                     max_rows=15,
                 )
                 if not view["uncategorized"].empty
-                else empty("Tudo categorizado no período."),
+                else empty("Everything in the period has a category."),
             ),
         ),
         card(
-            "Estabelecimentos novos no período",
+            "New merchants in the period",
             table(
                 view["new_merchants"],
                 [
-                    ("Estabelecimento", "id", "text"),
-                    ("Categoria", "category_label", "category"),
-                    ("Primeira compra", "first", "date"),
-                    ("Compras", "tx", "int"),
+                    ("Merchant", "id", "text"),
+                    ("Category", "category_label", "category"),
+                    ("First purchase", "first", "date"),
+                    ("Purchases", "tx", "int"),
                     ("Total", "total", "money"),
                 ],
                 max_rows=15,
             )
             if not view["new_merchants"].empty
-            else empty("Nenhum estabelecimento novo (ou o período começa no início do histórico)."),
-            note="Primeira compra de todo o histórico caiu dentro do período selecionado.",
+            else empty("No new merchants (or the period starts at the beginning of the history)."),
+            note="Their first purchase in the whole history falls inside the selected period.",
         ),
         card(
-            "Mudança de frequência",
+            "Frequency changes",
             table(
                 frequency,
                 [
-                    ("Estabelecimento", "id", "text"),
-                    ("Categoria", "category_label", "text"),
-                    ("Recente (compras/mês)", "recent_monthly_rate", "rate"),
-                    ("Base (compras/mês)", "baseline_monthly_rate", "rate"),
-                    ("Variação", "change_pct", "pct"),
+                    ("Merchant", "id", "text"),
+                    ("Category", "category_label", "text"),
+                    ("Recent (purchases/month)", "recent_monthly_rate", "rate"),
+                    ("Baseline (purchases/month)", "baseline_monthly_rate", "rate"),
+                    ("Change", "change_pct", "pct"),
                     ("", "direction_label", "text"),
                 ],
                 max_rows=15,
             )
             if not frequency.empty
-            else empty("Sem histórico suficiente para comparar frequência."),
-            note="Últimos 2 meses contra os 6 anteriores; variações acima de 50%.",
+            else empty("Not enough history to compare frequency."),
+            note="Last 2 months against the 6 before them; changes above 50%.",
         ),
     ]
 
 
 def _label_to_key(label: str) -> str:
-    return LABEL_PT_TO_KEY.get(label, "not_found")
+    return LABEL_TO_KEY.get(label, "not_found")
 
 
-# --------------------------------------------------------------------------- Categorias
+# --------------------------------------------------------------------------- Categories
 
 
 def category_page(view: dict) -> list:
@@ -252,42 +250,42 @@ def category_page(view: dict) -> list:
         {
             "label": "Total",
             "value": brl(view["total"]),
-            "note": spend_delta(view["momentum_pct"], "em 3 meses")[0],
+            "note": spend_delta(view["momentum_pct"], "over 3 months")[0],
             "tone": spend_delta(view["momentum_pct"], "")[1],
-            "help": "Variação compara o último mês com três meses antes.",
+            "help": "Change compares the latest month with three months earlier.",
         },
         {
-            "label": "Participação",
+            "label": "Share of spend",
             "value": pct(view["share_pct"]),
-            "note": "do gasto do período",
-            "help": "Parcela do gasto (compras positivas) do período nesta categoria.",
+            "note": "of spend in the period",
+            "help": "Share of the period's spend (positive purchases) in this category.",
         },
         {
-            "label": "Compras",
+            "label": "Purchases",
             "value": integer(view["count"]),
             "note": view["label"],
-            "help": "Quantidade de compras da categoria no período.",
+            "help": "Number of purchases in this category in the period.",
         },
         {
-            "label": "Ticket médio",
+            "label": "Average ticket",
             "value": brl(view["avg_ticket"]),
-            "note": "por compra",
-            "help": "Total da categoria dividido pelo número de compras.",
+            "note": "per purchase",
+            "help": "Category total divided by the number of purchases.",
         },
     ]
     merchants = view["merchants"]
     largest = view["largest"].assign(
-        parcelas=lambda d: [
-            f"{int(i)}/{int(t)}" if t > 1 else "À vista"
+        installments_label=lambda d: [
+            f"{int(i)}/{int(t)}" if t > 1 else "Single payment"
             for i, t in zip(d["installment"], d["total_installments"], strict=True)
         ]
     )
     return [
         kpi_row(cards),
         row(
-            card("Histórico mensal", graph(category_history_figure(view["history"], key))),
+            card("Monthly history", graph(category_history_figure(view["history"], key))),
             card(
-                "Principais estabelecimentos",
+                "Top merchants",
                 graph(
                     ranked_bar_figure(
                         merchants, "id", "cost", [category_color(key)] * len(merchants), height=320
@@ -296,21 +294,21 @@ def category_page(view: dict) -> list:
             ),
         ),
         card(
-            "Maiores compras",
+            "Largest purchases",
             table(
                 largest,
                 [
-                    ("Data", "date_buy", "date"),
-                    ("Estabelecimento", "id", "text"),
-                    ("Parcelas", "parcelas", "text"),
-                    ("Valor", "cost", "money"),
+                    ("Date", "date_buy", "date"),
+                    ("Merchant", "id", "text"),
+                    ("Installments", "installments_label", "text"),
+                    ("Amount", "cost", "money"),
                 ],
             ),
         ),
     ]
 
 
-# --------------------------------------------------------------------------- Relatórios
+# --------------------------------------------------------------------------- Reports
 
 
 def reports_page(view: dict) -> list:
@@ -320,45 +318,48 @@ def reports_page(view: dict) -> list:
         diff = brl(abs(metrics["diff_from_limit"]))
         cards = [
             {
-                "label": f"Parcelas {month_label(metrics['next_month'])}",
+                "label": f"Installments {month_label(metrics['next_month'])}",
                 "value": brl(metrics["next_month_cost"]),
-                "note": f"{diff} acima do limite" if over else f"{diff} livres no limite",
+                "note": f"{diff} over the limit" if over else f"{diff} left within the limit",
                 "tone": "bad" if over else "good",
-                "help": f"{metrics['num_installments']} parcelas já contratadas para a próxima fatura.",
+                "help": f"{metrics['num_installments']} installments already due on the next invoice.",
             },
             {
-                "label": "Uso do limite",
+                "label": "Limit used",
                 "value": pct(metrics["pct_of_limit"], 0),
-                "note": f"limite de {brl(limit)}",
-                "help": "Definido por REFERENCE_BUDGET_LIMIT no .env.",
+                "note": f"of a {brl(limit)} limit",
+                "help": "Set by REFERENCE_BUDGET_LIMIT in .env.",
             },
             {
-                "label": "Total a pagar em parcelas",
+                "label": "Total left in installments",
                 "value": brl(metrics["total_future_debt"]),
-                "note": f"em {metrics['months_count']} meses",
-                "help": f"Última parcela em {month_label(metrics['max_future_month'])}.",
+                "note": f"over {metrics['months_count']} months",
+                "help": f"Last installment in {month_label(metrics['max_future_month'])}.",
             },
             {
-                "label": "Transações na seleção",
+                "label": "Transactions in selection",
                 "value": integer(view["rows"]),
-                "note": "exportáveis em CSV abaixo",
-                "help": "Linhas do período e filtros atuais (sem pagamentos de fatura).",
+                "note": "exportable as CSV below",
+                "help": "Rows for the current period and filters (invoice payments excluded).",
             },
         ]
         commitments = [
             kpi_row(cards),
             row(
-                card("Parcelas por mês vs limite", graph(limit_figure(view["projection"], limit))),
                 card(
-                    "Próximas parcelas",
+                    "Installments per month vs limit",
+                    graph(limit_figure(view["projection"], limit)),
+                ),
+                card(
+                    "Upcoming installments",
                     html_scroll(
                         table(
                             view["details"],
                             [
-                                ("Fatura", "future_month", "month"),
-                                ("Estabelecimento", "id", "text"),
-                                ("Parcela", "installment_display", "text"),
-                                ("Valor", "cost", "money"),
+                                ("Invoice", "future_month", "month"),
+                                ("Merchant", "id", "text"),
+                                ("Installment", "installment_display", "text"),
+                                ("Amount", "cost", "money"),
                             ],
                         )
                     ),
@@ -366,30 +367,30 @@ def reports_page(view: dict) -> list:
             ),
         ]
     else:
-        commitments = [card("Parcelas", empty("Nenhuma compra parcelada em aberto."))]
+        commitments = [card("Installments", empty("No open installment purchases."))]
 
     invoices = (
         table(
             view["invoices"],
             [
-                ("Fatura", "year_month", "month"),
-                ("Compras", "tx", "int"),
-                ("Bruto", "gross", "money"),
-                ("Estornos", "refunds", "money"),
-                ("Líquido", "net", "money"),
+                ("Invoice", "year_month", "month"),
+                ("Purchases", "tx", "int"),
+                ("Gross", "gross", "money"),
+                ("Refunds", "refunds", "money"),
+                ("Net", "net", "money"),
             ],
         )
         if not view["invoices"].empty
         else empty(NO_ROWS)
     )
-    return [*commitments, card("Totais por fatura", invoices)]
+    return [*commitments, card("Invoice totals", invoices)]
 
 
 def html_scroll(child) -> html.Div:
     return html.Div(child, className="pe-scroll")
 
 
-# --------------------------------------------------------------------------- Hábitos
+# --------------------------------------------------------------------------- Habits
 
 
 def habits_page(view: dict) -> list:
@@ -397,56 +398,56 @@ def habits_page(view: dict) -> list:
         return [empty(NO_ROWS)]
     cards = [
         {
-            "label": "Compras por mês",
+            "label": "Purchases per month",
             "value": f"{view['per_month']:.0f}",
-            "note": f"{integer(view['count'])} compras no período",
-            "help": "Número de compras (sem estornos) dividido pelo número de faturas.",
+            "note": f"{integer(view['count'])} purchases in the period",
+            "help": "Number of purchases (refunds excluded) divided by the number of invoices.",
         },
         {
-            "label": "Ticket médio",
+            "label": "Average ticket",
             "value": brl(view["avg_ticket"]),
-            "note": f"mediana {brl(view['median_ticket'])}",
-            "help": "Média e mediana do valor por compra; mediana bem abaixo da média indica "
-            "poucas compras grandes puxando o total.",
+            "note": f"median {brl(view['median_ticket'])}",
+            "help": "Mean and median amount per purchase; a median well below the mean means a "
+            "few large purchases pull the total up.",
         },
         {
-            "label": "Parcelado",
+            "label": "In installments",
             "value": pct(view["installment_share"]),
-            "note": "do valor das compras",
-            "help": "Participação das compras parceladas no valor total do período.",
+            "note": "of purchase value",
+            "help": "Share of the period's purchase value paid in installments.",
         },
         {
-            "label": "Concentração",
+            "label": "Concentration",
             "value": pct(view["top10_share"]),
-            "note": f"nos 10 maiores · {view['pareto_n']} de {view['merchants']} fazem 80%",
-            "help": "Quanto do gasto está nos 10 estabelecimentos com maior valor, e quantos "
-            "estabelecimentos somam 80% do gasto.",
+            "note": f"in the top 10 · {view['pareto_n']} of {view['merchants']} make 80%",
+            "help": "How much of the spend sits in the 10 largest merchants, and how many "
+            "merchants add up to 80% of it.",
         },
     ]
     return [
         kpi_row(cards),
         row(
             card(
-                "À vista vs parcelado",
+                "Single payment vs installments",
                 graph(split_figure(view["split"])),
-                note="Valor das compras por fatura, separado pela forma de pagamento.",
+                note="Purchase value per invoice, split by payment method.",
             ),
             card(
-                "Faixas de valor",
+                "Ticket size bands",
                 graph(bands_figure(view["bands"])),
-                note="Quanto do gasto vem de compras pequenas, médias e grandes.",
+                note="How much of the spend comes from small, medium and large purchases.",
             ),
         ),
         row(
             card(
-                "Dia da semana",
+                "Day of week",
                 graph(weekday_figure(view["weekday"])),
-                note="Pela data da compra; o dia de maior gasto em destaque.",
+                note="By purchase date; the highest-spend day is highlighted.",
             ),
             card(
-                "Por titular",
+                "By cardholder",
                 graph(holders_figure(view["holders"])),
-                note="Compras de cada titular do cartão por fatura.",
+                note="Purchases by each cardholder per invoice.",
             ),
         ),
     ]

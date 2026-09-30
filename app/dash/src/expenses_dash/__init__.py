@@ -25,7 +25,7 @@ def create_app(loader: Callable[[], pd.DataFrame] | None = None) -> Dash:
 
         loader = load_expenses_data
 
-    app = Dash(__name__, title="Despesas", assets_folder=str(ASSETS_DIR))
+    app = Dash(__name__, title="Expenses", assets_folder=str(ASSETS_DIR))
     # Layout as a function: filter options are rebuilt from fresh data on every page load.
     app.layout = lambda: build_layout(filter_options(loader()))
     register_callbacks(app, loader)
