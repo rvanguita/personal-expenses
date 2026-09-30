@@ -26,6 +26,16 @@ def test_layout_has_filters_kpis_and_graphs(silver_history_df):
     ids = _ids(app.layout())
     assert {"f-period", "f-holders", "f-categories", "subtitle", "kpis", "largest"} <= ids
     assert {f"fig-{name}" for name in FIGURE_IDS} <= ids
+    assert {
+        "tabs",
+        "trends-content",
+        "watchlist-content",
+        "category-content",
+        "f-category-detail",
+        "reports-content",
+        "btn-csv",
+        "download-csv",
+    } <= ids
 
 
 def test_layout_builds_without_data():

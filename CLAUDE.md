@@ -186,23 +186,35 @@ The theme is fixed dark in `.streamlit/config.toml` (same palette as the Dash ap
 
 ### Dash frontend
 
-`src/expenses/dash_app/` is a single read-only page answering *how much did I spend, where, and
-what is already committed?* (writes stay in the Streamlit Ingest/Categorize/Manage tabs):
+`src/expenses/dash_app/` is a read-only app (writes stay in the Streamlit **Data** tab). Header +
+three global filters (period, holders, categories) sit above five `dcc.Tabs`, mirroring the
+Streamlit analyses in pt-BR:
 
-- `data.py` — `build_view(df_full, period, holders, categories) -> DashboardView`, built only from
-  `analytics.py` / `filters.py`; plus `filter_options`, `kpi_cards`, `month_label`. **Add new
-  numbers here, not in callbacks.** Installment commitments use the holder/category scope but
-  ignore the period.
-- `figures.py` — Plotly builders; `theme.py` — dark-theme tokens and `plotly_layout()`.
-  Category bars use `config.CATEGORY_CONFIG` colors (merchants take their dominant category's);
-  other series use `ACCENT` / `AVERAGE` / `COMMITMENT`. Figures may only use `theme.PALETTE`
-  (tested).
-- `layout.py` — static structure (header, 3 dropdowns, 4 KPI cards, 4 graphs, purchases table);
-  `callbacks.py` — pure `update_dashboard(df_full, period, holders, categories)` + one callback.
+| Tab | View model | Content |
+|---|---|---|
+| Visão geral | `data.build_view` | 4 KPIs, monthly total + 3M avg, category / top-merchant bars, future installments, largest purchases |
+| Tendências | `analyses.trends_view` | trend / 3M avg / projection / period-vs-previous KPIs, category comparison, same months last year, momentum table |
+| Atenção | `analyses.watchlist_view` | fixed cost, recurring charges, outliers, uncategorized, frequency shifts (tables only) |
+| Categorias | `analyses.category_view` | own category picker (options follow the filters), KPIs, monthly history, merchants, largest purchases |
+| Relatórios | `analyses.reports_view` | installments vs `REFERENCE_BUDGET_LIMIT`, upcoming installments, invoice totals, CSV download (`export_frame`) |
+
+- Every view model starts from `data.slice_data(df_full, period, holders, categories)`:
+  `df` = selected period/holders/categories (payments removed), `df_scope` = same holders/categories
+  over the full history (installment projections, recurring charges and comparisons need it).
+  **Add numbers to the view models, never in callbacks or pages;** only call `analytics.py`.
+- `figures.py` — Plotly builders; `theme.py` — dark tokens, `plotly_layout()`, `LEGEND_TOP`.
+  Category marks use `config.CATEGORY_CONFIG` colors; series use `ACCENT` / `AVERAGE` /
+  `COMMITMENT` / `PREVIOUS` / `LIMIT`. Figures may only use `theme.PALETTE` (tested).
+- `layout.py` — static structure + shared components (`card`, `kpi_row`, `row`, `graph`, generic
+  `table(df, [(header, column, kind)])`); `pages.py` — body of each secondary tab.
+- `callbacks.py` — Overview fills fixed ids (`update_dashboard`); each other tab has one callback
+  that returns `no_update` unless its tab is active (`render_tab`, `render_category` are the pure,
+  tested bodies); CSV via `dcc.Download`.
 - `create_app(loader=None)` in `__init__.py`; `loader` defaults to `load_expenses_data` (imported
   lazily). `app.layout` is a function so filter options refresh on page load.
 - Styles: repo-level `assets/dashboard.css` (dark theme; overrides Dash 4's `--Dash-*` variables
-  for the dropdowns). UI text is pt-BR. The package must not import Streamlit (tested).
+  for dropdowns and styles `dcc.Tabs` via `pe-tab*` classes). The package must not import
+  Streamlit (tested).
 
 ## Testing conventions
 
@@ -214,7 +226,8 @@ import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules (5 analytic
 (`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
 `streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
 `silver_history_df` fixture — no database or Gemini API calls are hit. The Dash app is covered by
-`test_dash_data.py` (view model + figure colors) and `test_dash_app.py` (layout ids + `update_dashboard`). Shared fixtures
+`test_dash_data.py` (Overview view model + figure colors), `test_dash_analyses.py` (secondary tab
+view models, rendered bodies, CSV export) and `test_dash_app.py` (layout ids + `update_dashboard`). Shared fixtures
 (`sample_raw_csv_content`, `sample_csv_file`, `sample_expenses_df`, `silver_history_df`) live in
 `tests/conftest.py`; extend these rather than duplicating sample data per
 test file. The Silver enrichment lives in the pure `database._shape_silver_frame(df)` helper (called by

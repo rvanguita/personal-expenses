@@ -17,9 +17,12 @@ FONT = "Inter, -apple-system, 'Segoe UI', Roboto, sans-serif"
 ACCENT = "#4C9BE8"  # monthly total, KPI values
 AVERAGE = "#F5B942"  # 3-month moving average
 COMMITMENT = "#2BB5A0"  # future installments
+PREVIOUS = "#5B6B80"  # comparison baseline (previous period / last year)
+LIMIT = "#EF5350"  # reference budget limit and months above it
 
 FALLBACK = CATEGORY_COLORS["not_found"]
-PALETTE = (ACCENT, AVERAGE, COMMITMENT, *CATEGORY_COLORS.values())
+PALETTE = (ACCENT, AVERAGE, COMMITMENT, PREVIOUS, LIMIT, *CATEGORY_COLORS.values())
+LEGEND_TOP = {"orientation": "h", "x": 0, "y": 1.02, "yanchor": "bottom", "font": {"size": 11}}
 
 
 def category_color(key: str) -> str:

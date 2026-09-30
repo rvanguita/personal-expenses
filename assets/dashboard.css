@@ -91,10 +91,57 @@ body {
 .pe-kpi-note { font-size: 0.8rem; color: var(--muted); margin: 0; }
 .pe-empty { color: var(--muted); grid-column: 1 / -1; margin: 8px 0; }
 
+/* Tabs */
+.pe-tabs-parent { margin-bottom: 20px; }
+.pe-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border) !important;
+  background: transparent !important;
+}
+.pe-tab {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  padding: 10px 14px !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  color: var(--muted) !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pe-tab:hover { color: var(--text) !important; }
+.pe-tab--selected {
+  color: var(--text) !important;
+  border-bottom: 2px solid var(--accent) !important;
+}
+.pe-tab-content { padding-top: 20px; }
+
+.pe-card-note { font-size: 0.8rem; color: var(--muted); margin: -4px 0 8px; }
+.pe-picker { max-width: 360px; margin-bottom: 16px; }
+.pe-scroll { max-height: 340px; overflow-y: auto; }
+.pe-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+.pe-button {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pe-button:hover { background: rgba(76, 155, 232, 0.12); }
+
 /* Table */
 .pe-table-wrap { overflow-x: auto; }
 .pe-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .pe-table th {
+  position: sticky;
+  top: 0;
+  background: var(--card);
   text-align: left;
   font-weight: 600;
   color: var(--muted);
@@ -103,7 +150,7 @@ body {
 }
 .pe-table td { border-bottom: 1px solid var(--border); padding: 9px 6px; }
 .pe-table tr:last-child td { border-bottom: none; }
-.pe-table th:last-child, .pe-num {
+.pe-table th.pe-num, .pe-table td.pe-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -119,6 +166,7 @@ body {
 
 @media (max-width: 900px) {
   .pe-filters, .pe-grid-2 { grid-template-columns: 1fr; }
+  .pe-tabs { overflow-x: auto; }
   .pe-grid-4 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 520px) {

@@ -68,6 +68,47 @@ def month_label(year_month: str) -> str:
         return str(year_month)
 
 
+@dataclass
+class Slice:
+    """The frames every tab starts from.
+
+    ``df`` — the selected period, holders and categories (payments removed).
+    ``df_scope`` — the same holders/categories over the full history: installment projections,
+    recurring charges and comparisons need months outside the selected period.
+    """
+
+    df: pd.DataFrame
+    df_scope: pd.DataFrame
+    months: list[str]
+    period_label: str
+    last_invoice: str
+
+
+def slice_data(
+    df_full: pd.DataFrame,
+    period: str | None = DEFAULT_PERIOD,
+    holders: list[str] | None = None,
+    categories: list[str] | None = None,
+) -> Slice:
+    period = period if period in PERIOD_LABELS else DEFAULT_PERIOD
+    if df_full.empty:
+        return Slice(pd.DataFrame(), pd.DataFrame(), [], PERIOD_LABELS[period], "")
+    all_months = sorted(df_full["year_month"].dropna().unique(), reverse=True)
+    months = resolve_default_months(period, all_months)
+    scope = {
+        **DEFAULT_FILTERS,
+        "selected_holders": list(holders or []),
+        "selected_categories": list(categories or []),
+    }
+    return Slice(
+        df=apply_filters(df_full, {**scope, "selected_months": months}),
+        df_scope=apply_filters(df_full, scope),
+        months=sorted(months),
+        period_label=PERIOD_LABELS[period],
+        last_invoice=pd.Timestamp(df_full["date"].max()).strftime("%d/%m/%Y"),
+    )
+
+
 def filter_options(df_full: pd.DataFrame) -> dict:
     """Choices for the controls: periods, card holders and (key, label) categories."""
     periods = list(PERIOD_LABELS.items())
@@ -88,24 +129,14 @@ def build_view(
     categories: list[str] | None = None,
 ) -> DashboardView:
     """Everything the dashboard shows for one selection of the controls."""
-    period = period if period in PERIOD_LABELS else DEFAULT_PERIOD
-    view = DashboardView(period_label=PERIOD_LABELS[period])
+    sliced = slice_data(df_full, period, holders, categories)
+    view = DashboardView(period_label=sliced.period_label)
     if df_full.empty:
         return view
 
-    all_months = sorted(df_full["year_month"].dropna().unique(), reverse=True)
-    months = resolve_default_months(period, all_months)
-    scope = {
-        **DEFAULT_FILTERS,
-        "selected_holders": list(holders or []),
-        "selected_categories": list(categories or []),
-    }
-    # Holder/category scope without the period: installments fall after the selected months.
-    df_scope = apply_filters(df_full, scope)
-    df = apply_filters(df_full, {**scope, "selected_months": months})
-
-    view.months = sorted(months)
-    view.last_invoice = pd.Timestamp(df_full["date"].max()).strftime("%d/%m/%Y")
+    df, df_scope = sliced.df, sliced.df_scope
+    view.months = sliced.months
+    view.last_invoice = sliced.last_invoice
     _fill_commitments(view, df_scope)
     if df.empty:
         return view
