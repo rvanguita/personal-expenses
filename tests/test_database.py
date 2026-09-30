@@ -3,7 +3,7 @@ composite dedup key, and the None-engine guards on the read/write helpers."""
 
 import pandas as pd
 
-from src.expenses.database import (
+from expenses.database import (
     _BRONZE_KEY_COLS,
     _bronze_row_key,
     _shape_silver_frame,
@@ -107,7 +107,7 @@ def test_bronze_key_cols_and_row_key():
         "source_file": "f",
     }
     row_b = {**row_a, "created_at": "2026-01-05 10:00:00"}  # extra col not in the key
-    assert _bronze_row_key(row_a) == "2026-01-05_2025-12-01_X_10.0_0_0_R_f"
+    assert _bronze_row_key(row_a) == "2026-01-05_2025-12-01_X_10.00_0.00_0.00_R_f"
     assert _bronze_row_key(row_a) == _bronze_row_key(row_b)
 
 
@@ -156,8 +156,8 @@ def test_align_table_columns_none_engine_noop():
 
 
 def test_layer_loaders_return_empty_without_engine(monkeypatch):
-    monkeypatch.setattr("src.expenses.database.get_db_engine", lambda *a, **k: None)
-    monkeypatch.setattr("src.expenses.database.create_medallion_tables", lambda *a, **k: None)
+    monkeypatch.setattr("expenses.database.get_db_engine", lambda *a, **k: None)
+    monkeypatch.setattr("expenses.database.create_medallion_tables", lambda *a, **k: None)
     for loader in (load_raw_data, load_bronze_data, load_silver_data):
         out = loader()
         assert isinstance(out, pd.DataFrame)

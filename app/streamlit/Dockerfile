@@ -16,17 +16,19 @@ ENV PYTHONUNBUFFERED=1 \
 # curl for the healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# Dependencies first (cached layer)
+# Dependencies first (cached layer). The workspace lock needs every member's pyproject.toml,
+# but only this app's dependency tree is installed (`--package`).
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
+COPY app/streamlit/pyproject.toml ./app/streamlit/pyproject.toml
+COPY app/dash/pyproject.toml ./app/dash/pyproject.toml
+RUN uv sync --frozen --no-dev --package expenses-streamlit --no-install-workspace
 
-# Shared backend, project data and this app only
+# Shared backend (package `expenses`), project data and this app only
 COPY src/ ./src/
 COPY data/ ./data/
 COPY template/ ./template/
-COPY app/__init__.py ./app/__init__.py
 COPY app/streamlit/ ./app/streamlit/
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --package expenses-streamlit
 
 # Streamlit reads .streamlit/config.toml from the working directory, i.e. this app's folder.
 WORKDIR /app/app/streamlit

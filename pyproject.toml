@@ -1,46 +1,50 @@
+# Workspace root and the shared backend package `expenses` (src/expenses). Each frontend is a
+# workspace member under app/ with its own pyproject.toml, src/ package and tests/.
 [project]
 name = "expenses"
 version = "0.1.0"
-description = "Credit Card Expenses & Financial Intelligence Dashboard with Gemini AI Categorization"
+description = "Credit card expenses backend: medallion pipeline, analytics and Gemini categorization"
 readme = "README.md"
 authors = [{ name = "Personal Expenses contributors" }]
 requires-python = ">=3.13"
 dependencies = [
-    "dash>=4.4.1",
     "google-genai>=2.18.1",
     "numpy>=2.5.2",
     "pandas>=3.0.5",
-    "plotly>=6.9.0",
     "pymysql>=1.2.0",
     "python-dotenv>=1.2.2",
-    "ruff>=0.16.3",
     "sqlalchemy>=2.0.52",
-    "streamlit>=1.61.1",
 ]
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.workspace]
+members = ["app/streamlit", "app/dash"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.3",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "app/streamlit/tests", "app/dash/tests"]
+# Test files in different suites share names (test_figures.py, ...).
+addopts = "--import-mode=importlib"
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
+src = ["src", "app/streamlit/src", "app/dash/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4"]
 ignore = ["E501"]
 
-[tool.ruff.lint.per-file-ignores]
-# Entry points put the project root on sys.path before importing the app.
-"app/*/main.py" = ["E402"]
+[tool.ruff.lint.isort]
+known-first-party = ["expenses", "expenses_streamlit", "expenses_dash"]

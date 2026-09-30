@@ -15,8 +15,7 @@ MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 
 # Unified Table Name across all Medallion database layers
-MYSQL_TABLE = os.getenv("MYSQL_TABLE", os.getenv("MYSQL_ID_TABLE", "personal_expenses"))
-MYSQL_ID_TABLE = MYSQL_TABLE
+MYSQL_TABLE = os.getenv("MYSQL_TABLE", "personal_expenses")
 
 # Medallion Architecture Database Names
 MYSQL_DB_RAW = os.getenv("MYSQL_DB_RAW", "raw")
@@ -43,9 +42,6 @@ def _project_path(value: str | Path) -> Path:
 # git-ignored local file so merchant-derived data cannot be committed accidentally.
 CATEGORY_SEED_PATH = PROJECT_ROOT / "data" / "categories.default.json"
 CATEGORY_LOCAL_PATH = _project_path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.local.json"))
-
-# Streamlit Port Configuration
-STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", os.getenv("STREAMLIT_SERVER_PORT", "8503")))
 
 # Dash Port Configuration
 DASH_PORT = int(os.getenv("DASH_PORT", "8050"))
@@ -135,10 +131,6 @@ def normalize_merchant_id(raw_id: str) -> str:
 
 def get_category_color(cat: str) -> str:
     return CATEGORY_CONFIG.get(cat, {}).get("color", "#9E9E9E")
-
-
-def get_category_label(cat: str) -> str:
-    return CATEGORY_CONFIG.get(cat, {}).get("label", cat)
 
 
 def read_file(path: str | Path, is_json: bool = False):

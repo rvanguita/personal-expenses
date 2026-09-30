@@ -1,7 +1,7 @@
 import json
 
-import src.expenses.config as config
-from src.expenses.config import (
+import expenses.config as config
+from expenses.config import (
     CATEGORY_COLOR_MAP,
     CATEGORY_COLORS,
     CATEGORY_CONFIG,
@@ -11,7 +11,6 @@ from src.expenses.config import (
     format_currency_br,
     format_currency_md,
     get_category_color,
-    get_category_label,
     load_category_dictionary,
     normalize_merchant_id,
     read_file,
@@ -43,8 +42,6 @@ def test_category_config_integrity():
 def test_category_helpers():
     assert get_category_color("food") == "#FF9800"
     assert get_category_color("non_existent") == "#9E9E9E"
-    assert get_category_label("shopping") == "Shopping"
-    assert get_category_label("custom_cat") == "custom_cat"
 
 
 def test_normalize_merchant_id_collapses_variants():

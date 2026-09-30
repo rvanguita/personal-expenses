@@ -1,0 +1,18 @@
+[project]
+name = "expenses-dash"
+version = "0.1.0"
+description = "Dash app: read-only expenses dashboard (pt-BR, dark theme)"
+requires-python = ">=3.13"
+dependencies = [
+    "dash>=4.4.1",
+    "expenses",
+    "pandas>=3.0.5",
+    "plotly>=6.9.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+expenses = { workspace = true }

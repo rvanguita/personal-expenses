@@ -2,7 +2,7 @@
 
 Uma aplicação de análise financeira para transformar faturas de cartão de crédito em dados organizados, categorias revisáveis e painéis interativos.
 
-O projeto combina uma interface Streamlit com um pipeline em camadas Raw, Bronze e Silver no MySQL. Arquivos CSV são preservados em formato bruto, padronizados para análise e enriquecidos por regras locais, histórico de classificações e Google Gemini.
+O projeto tem duas interfaces, uma em Streamlit (análise e operação dos dados) e outra em Dash (painel somente leitura), sobre um pipeline em camadas Raw, Bronze e Silver no MySQL. Arquivos CSV são preservados em formato bruto, padronizados para análise e enriquecidos por regras locais, histórico de classificações e Google Gemini.
 
 ## O que o projeto entrega
 
@@ -10,9 +10,10 @@ O projeto combina uma interface Streamlit com um pipeline em camadas Raw, Bronze
 - Arquitetura medalhão em três bancos MySQL independentes.
 - Deduplicação entre cargas e alinhamento automático de colunas.
 - Categorização por histórico, dicionário local e fallback opcional para o Gemini.
-- Dashboard com indicadores, tendências, categorias, recorrências e projeções de parcelas.
-- Edição e manutenção das camadas por uma interface Streamlit.
-- Testes unitários sem dependência de MySQL ou Gemini ativos.
+- Dashboard com indicadores, tendências, hábitos, categorias, recorrências e projeções de parcelas.
+- Edição e manutenção das camadas pela interface Streamlit.
+- Cada aplicação com suas próprias dependências e imagem Docker (workspace uv).
+- Testes unitários para cada função, sem dependência de MySQL ou Gemini ativos.
 
 ## Arquitetura e fluxo do projeto
 
@@ -31,16 +32,17 @@ flowchart LR
     gemini --> silver
 
     silver --> analytics[Analytics]
-    analytics --> app[Streamlit]
+    analytics --> streamlit[app/streamlit]
+    analytics --> dash[app/dash]
 ```
 
 ### Fluxo em cinco etapas
 
-1. A aba de ingestão recebe uma ou mais faturas CSV.
+1. A aba **Data → Ingest** do Streamlit recebe uma ou mais faturas CSV.
 2. O parser preserva as colunas originais na Raw e cria uma representação tipada na Bronze.
 3. Comerciantes conhecidos são classificados pelo histórico da Silver ou pelo dicionário local.
 4. Comerciantes ainda desconhecidos podem ser enviados ao Gemini em lotes e revisados antes da persistência.
-5. A Silver alimenta filtros, métricas, gráficos, relatórios e projeções do Streamlit.
+5. A Silver alimenta filtros, métricas, gráficos, relatórios e projeções das duas aplicações.
 
 ## Camadas de dados
 
@@ -54,6 +56,8 @@ As camadas usam o mesmo nome de tabela, configurado por `MYSQL_TABLE`, em bancos
 
 ## Produto analítico
 
+### Streamlit (`app/streamlit`)
+
 A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e uma aba **Data** com as operações de dados. Todas compartilham os filtros de período, portador e categoria (tipo de transação, forma de pagamento e busca ficam em "More filters"; ocultar valores e recarregar dados ficam em "Display").
 
 | Aba | Pergunta respondida |
@@ -66,6 +70,21 @@ A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e u
 | Data → Ingest | Quais arquivos e registros serão carregados em Raw e Bronze? |
 | Data → Categorize | Quais comerciantes foram reconhecidos e quais precisam de classificação? |
 | Data → Manage | Como inspecionar, editar e deduplicar as três camadas? |
+
+### Dash (`app/dash`)
+
+Painel somente leitura em português (valores como R$ 1.234,56), modo escuro e cores por categoria, com os mesmos filtros de período, titular e categoria:
+
+| Aba | O que mostra |
+| --- | --- |
+| Visão geral | Gasto no período, média mensal, última fatura, parcelas da próxima fatura, evolução mensal, categorias, estabelecimentos e maiores compras |
+| Tendências | Período atual vs anterior, mesmos meses do ano anterior, mapa de calor categoria × mês e momento das categorias |
+| Hábitos | À vista vs parcelado, faixas de valor, dia da semana, gasto por titular e concentração nos maiores estabelecimentos |
+| Atenção | Custo fixo, recorrências, compras atípicas, gastos sem categoria, estabelecimentos novos e mudança de frequência |
+| Categorias | Detalhe de uma categoria: total, participação, histórico, estabelecimentos e maiores compras |
+| Relatórios | Parcelas contra o limite, próximas parcelas, totais por fatura e download em CSV |
+
+Importação, categorização e manutenção continuam no Streamlit.
 
 ### Regras analíticas importantes
 
@@ -101,7 +120,7 @@ A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e u
 
 ```bash
 cp .env.example .env
-uv sync --all-groups
+uv sync --all-packages --all-groups   # backend + as duas aplicações + ferramentas de dev
 ```
 
 Preencha o `.env` com as credenciais do seu ambiente:
@@ -126,14 +145,13 @@ STREAMLIT_PORT="8503"
 DASH_PORT="8050"
 ```
 
-### Iniciar a aplicação
+### Iniciar as aplicações
 
 ```bash
 uv run --directory app/streamlit streamlit run main.py   # app completo em http://localhost:8503
 uv run --directory app/dash python main.py               # dashboard Dash (somente leitura) em http://localhost:8050
 ```
 
-O Dash traz as análises do Streamlit e algumas próprias, em português (valores como R$ 1.234,56) e modo escuro, com as cores de cada categoria: **Visão geral**, **Tendências** (período anterior, ano anterior, mapa de calor categoria × mês e momento das categorias), **Hábitos** (à vista vs parcelado, faixas de valor, dia da semana, gasto por titular e concentração nos maiores estabelecimentos), **Atenção** (recorrências, compras atípicas, sem categoria, estabelecimentos novos e mudança de frequência), **Categorias** (detalhe de uma categoria) e **Relatórios** (parcelas contra o limite, totais por fatura e download em CSV). Importação, categorização e manutenção continuam no Streamlit.
 
 ### Executar com Docker
 
@@ -142,7 +160,7 @@ docker compose up --build -d
 docker compose logs -f streamlit dash
 ```
 
-O `docker-compose.yml` da raiz inicia dois serviços, cada um construído a partir do Dockerfile da própria aplicação: `streamlit` (`app/streamlit/Dockerfile`, `:8503`) e `dash` (`app/dash/Dockerfile`, `:8050`). O MySQL deve estar acessível a partir da rede do container.
+O `docker-compose.yml` da raiz inicia dois serviços, cada um construído a partir do Dockerfile da própria aplicação: `streamlit` (`app/streamlit/Dockerfile`, `:8503`) e `dash` (`app/dash/Dockerfile`, `:8050`). Cada imagem instala só as dependências da sua aplicação (a do Dash não contém Streamlit e vice-versa). O MySQL deve estar acessível a partir da rede do container.
 
 ## Categorias e aprendizado local
 
@@ -161,39 +179,50 @@ O arquivo local é ignorado pelo Git e pelo build Docker, mas permanece no volum
 ## Qualidade e testes
 
 ```bash
-uv run pytest
+uv run pytest                           # backend (tests/) + app/streamlit/tests + app/dash/tests
+uv run pytest app/dash/tests            # só uma aplicação
+uv run pytest --cov=expenses --cov=expenses_streamlit --cov=expenses_dash
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-A suíte cobre parsing de CSV, transformação medalhão, deduplicação, categorização, filtros, métricas, gráficos e importação da interface. As integrações externas são simuladas nos testes.
+Cada pacote tem a sua suíte: `tests/` para o backend, `app/streamlit/tests/` e `app/dash/tests/` para as aplicações, com fixtures compartilhadas no `conftest.py` da raiz. O teste `tests/test_every_function_is_tested.py` falha se alguma função do projeto não aparecer em nenhum teste, e `tests/test_architecture.py` garante que o backend não importa Streamlit nem Dash e que uma aplicação não importa a outra. Banco (SQLite nos testes de escrita), Gemini e Streamlit (`AppTest`) são simulados; nenhum teste acessa MySQL ou a API.
 
 ## Estrutura do repositório
 
 ```text
 personal-expenses/
-├── app/
-│   ├── streamlit/                # aplicação Streamlit
-│   │   ├── main.py               # entrada
-│   │   ├── Dockerfile
-│   │   ├── .streamlit/           # tema e configuração
-│   │   └── ui/                   # componentes, gráficos e abas
-│   └── dash/                     # aplicação Dash (somente leitura)
-│       ├── main.py               # entrada
-│       ├── Dockerfile
-│       ├── assets/               # CSS
-│       └── *.py                  # dados, análises, figuras, layout, callbacks
-├── data/                         # seed público de categorias; dados locais são ignorados
+├── pyproject.toml                # workspace uv + pacote do backend (expenses) + ferramentas de dev
+├── uv.lock
+├── conftest.py                   # fixtures de teste compartilhadas
 ├── src/expenses/                 # backend compartilhado pelas duas aplicações
 │   ├── ai_categorizer.py         # matching local e integração Gemini
 │   ├── analytics.py              # métricas, tendências e projeções
-│   ├── config.py                 # configuração e metadados compartilhados
+│   ├── config.py                 # configuração, caminhos e metadados de categorias
 │   ├── database.py               # bancos Raw, Bronze e Silver
-│   └── parser.py                 # leitura e padronização dos CSVs
+│   ├── filters.py                # filtros globais
+│   ├── gemini.py                 # cliente Gemini com retry e fallback de modelos
+│   ├── parser.py                 # leitura e padronização dos CSVs
+│   └── runtime.py                # cache e avisos sem depender de Streamlit
+├── tests/                        # testes do backend e da arquitetura
+├── app/
+│   ├── streamlit/
+│   │   ├── pyproject.toml        # dependências da aplicação (streamlit, plotly, expenses)
+│   │   ├── Dockerfile
+│   │   ├── main.py               # entrada (streamlit run main.py)
+│   │   ├── .streamlit/           # tema e configuração
+│   │   ├── src/expenses_streamlit/   # abas, gráficos, estilos, barra lateral
+│   │   └── tests/
+│   └── dash/
+│       ├── pyproject.toml        # dependências da aplicação (dash, plotly, expenses)
+│       ├── Dockerfile
+│       ├── main.py               # entrada (python main.py)
+│       ├── src/expenses_dash/    # dados, análises, figuras, layout, callbacks, assets/
+│       └── tests/
+├── data/                         # seed público de categorias; dados locais são ignorados
 ├── template/                     # prompt de categorização
-├── tests/                        # suíte unitária e smoke tests
 ├── docker-compose.yml            # sobe as duas aplicações
-└── pyproject.toml
+└── .github/workflows/ci.yml      # lint, formatação e testes com cobertura
 ```
 
 ## Limitações e próximos passos
