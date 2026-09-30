@@ -1,22 +1,22 @@
 import pandas as pd
 import streamlit as st
 
-from src.expenses.analytics import (
+from expenses.analytics import (
     get_merchant_frequency_change,
     get_recurring_merchants,
     get_spending_anomalies,
 )
-from src.expenses.config import (
+from expenses.config import (
     ANOMALY_MIN_CATEGORY_TX,
     ANOMALY_Z_THRESHOLD,
     RECURRING_MAX_CV,
     RECURRING_MIN_MONTHS,
     format_currency_br,
 )
-from src.expenses.ui.styles import section
+from expenses_streamlit.styles import section
 
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")
-_STATUS = {"Increased": "🔺 Increased", "Decreased": "🔻 Decreased", "Stable": "Stable"}
+_STATUS = {"Increased": "▲ Increased", "Decreased": "▼ Decreased", "Stable": "Stable"}
 
 
 def _uncategorized(df_expenses: pd.DataFrame) -> tuple[pd.DataFrame, float, float]:
@@ -58,7 +58,6 @@ def render_watchlist_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     uncategorized, nf_total, nf_share = _uncategorized(df_expenses)
     fixed_cost = float(recurring["avg_monthly_cost"].sum()) if not recurring.empty else 0.0
 
-    st.caption("Charges and purchases worth a second look.")
     k1, k2, k3, k4 = st.columns(4)
     k1.metric(
         "Fixed monthly cost",

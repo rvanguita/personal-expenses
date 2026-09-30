@@ -1,21 +1,17 @@
 import pandas as pd
 import streamlit as st
 
-from src.expenses.analytics import (
+from expenses.analytics import (
     get_category_momentum,
     get_period_over_period_comparison,
     get_spending_trend,
     get_year_over_year_comparison,
 )
-from src.expenses.config import format_currency_br
-from src.expenses.ui.figures import (
-    build_period_comparison_figure,
-    build_trend_figure,
-    build_yoy_figure,
-)
+from expenses.config import format_currency_br
+from expenses_streamlit.figures import build_period_comparison_figure, build_yoy_figure
 
 _DIRECTION = {"up": "Rising", "down": "Falling", "stable": "Stable"}
-_MOMENTUM_ICONS = {"rising": "▲ Rising", "falling": "▼ Falling", "stable": "→ Stable"}
+_MOMENTUM_LABELS = {"rising": "▲ Rising", "falling": "▼ Falling", "stable": "Stable"}
 _VS_PREVIOUS = "vs previous period"
 _VS_LAST_YEAR = "vs last year"
 
@@ -96,16 +92,7 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     pop = get_period_over_period_comparison(df_full, selected_months)
     yoy = get_year_over_year_comparison(df_full)
 
-    st.caption("Whether your spending is rising or falling, and how it compares.")
     _render_kpis(trend, pop)
-
-    with st.container(border=True):
-        st.markdown("##### Net spending and 3-month average")
-        fig = build_trend_figure(trend["moving_avg_df"]) if trend["has_data"] else None
-        if fig is not None:
-            st.plotly_chart(fig, width="stretch")
-        else:
-            st.caption("Needs at least two months of data.")
 
     with st.container(border=True):
         _render_comparison(pop, yoy)
@@ -119,7 +106,7 @@ def render_trends_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
                 pd.DataFrame(
                     {
                         "Category": momentum["category_label"],
-                        "Trend": momentum["direction"].map(_MOMENTUM_ICONS),
+                        "Trend": momentum["direction"].map(_MOMENTUM_LABELS),
                         "Last month": momentum["last_month_value"].astype(float),
                         "3-month change": momentum["pct_change_over_window"] / 100.0,
                     }

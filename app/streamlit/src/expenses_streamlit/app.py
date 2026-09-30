@@ -1,15 +1,20 @@
-# %%
+"""Streamlit app body. ``app/streamlit/main.py`` (the script Streamlit runs) calls ``main()``.
+
+Database access goes through the ``database`` module (not names imported from it) so tests can
+stub ``database.get_db_engine`` / ``database.load_expenses_data`` even after this module is cached.
+"""
+
 import streamlit as st
 
-from src.expenses.database import get_db_engine, load_expenses_data
-from src.expenses.filters import apply_filters
-from src.expenses.ui import (
+from expenses import database
+from expenses.filters import apply_filters
+from expenses_streamlit import (
     apply_custom_styles,
     render_amount_visibility_css,
     render_header,
     render_sidebar,
 )
-from src.expenses.ui.tabs import (
+from expenses_streamlit.tabs import (
     render_categorize_tab,
     render_category_tab,
     render_dashboard_tab,
@@ -32,18 +37,18 @@ def main():
     apply_custom_styles()
     render_header()
 
-    engine = get_db_engine()
+    engine = database.get_db_engine()
     if engine is None:
         st.error(
             "⚠️ Database configuration not found in `.env` file. Please check `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST`."
         )
         return
 
-    df_full = load_expenses_data()
+    df_full = database.load_expenses_data()
 
     if df_full.empty:
         st.warning(
-            "No data found in the database. Use the **Ingest** tab to upload your first invoice."
+            "No data found in the database. Use **Data → Ingest** to upload your first invoice."
         )
 
     # Sidebar global filters
@@ -52,30 +57,12 @@ def main():
     # Global "hide amounts" privacy toggle (blurs monetary figures via injected CSS)
     render_amount_visibility_css(st.session_state.get("hide_amounts", False))
 
-    # Applying filters (src.expenses.filters.apply_filters)
+    # Applying filters (expenses.filters.apply_filters)
     df_filtered = apply_filters(df_full, filters)
 
-    # Main navigation tabs: analysis first (one question each), then data operations
-    (
-        tab_overview,
-        tab_trends,
-        tab_watchlist,
-        tab_categories,
-        tab_reports,
-        tab_ingest,
-        tab_categorize,
-        tab_manage,
-    ) = st.tabs(
-        [
-            "📊 Overview",
-            "📈 Trends",
-            "🔔 Watchlist",
-            "🔍 Categories",
-            "📑 Reports",
-            "📥 Ingest",
-            "🏷️ Categorize",
-            "🛠️ Manage Data",
-        ]
+    # Analysis first (one question per tab), then every write path grouped under "Data"
+    tab_overview, tab_trends, tab_watchlist, tab_categories, tab_reports, tab_data = st.tabs(
+        ["Overview", "Trends", "Watchlist", "Categories", "Reports", "Data"]
     )
 
     with tab_overview:
@@ -93,15 +80,11 @@ def main():
     with tab_reports:
         render_reports_tab(df_filtered, df_full)
 
-    with tab_ingest:
-        render_import_tab(engine)
-
-    with tab_categorize:
-        render_categorize_tab(engine)
-
-    with tab_manage:
-        render_management_tab(df_full, engine)
-
-
-if __name__ == "__main__":
-    main()
+    with tab_data:
+        tab_ingest, tab_categorize, tab_manage = st.tabs(["Ingest", "Categorize", "Manage"])
+        with tab_ingest:
+            render_import_tab(engine)
+        with tab_categorize:
+            render_categorize_tab(engine)
+        with tab_manage:
+            render_management_tab(df_full, engine)
