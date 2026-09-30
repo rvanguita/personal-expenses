@@ -8,9 +8,9 @@ The header, filters and tab strip are static. The Overview tab has fixed compone
 import pandas as pd
 from dash import dcc, html
 
-from src.expenses.dash_app.data import DEFAULT_PERIOD, PERIOD_LABELS, month_label
-from src.expenses.dash_app.fmt import brl, integer, pct
-from src.expenses.dash_app.theme import category_color
+from app.dash.data import DEFAULT_PERIOD, PERIOD_LABELS, month_label
+from app.dash.fmt import brl, integer, pct
+from app.dash.theme import category_color
 
 GRAPH_CONFIG = {"displayModeBar": False}
 FIGURE_IDS = ("monthly", "categories", "merchants", "commitments")

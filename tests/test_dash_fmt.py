@@ -2,14 +2,14 @@
 
 import math
 
-from src.expenses.config import CATEGORY_CONFIG
-from src.expenses.dash_app.fmt import (
+from app.dash.fmt import (
     CATEGORY_LABELS_PT,
     LABEL_PT_TO_KEY,
     brl,
     integer,
     pct,
 )
+from src.expenses.config import CATEGORY_CONFIG
 
 
 def test_brl():

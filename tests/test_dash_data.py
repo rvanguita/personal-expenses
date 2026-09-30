@@ -1,25 +1,25 @@
-"""Dash dashboard view model and figures (src/expenses/dash_app)."""
+"""Dash dashboard view model and figures (app/dash)."""
 
 import pandas as pd
 import plotly.graph_objects as go
 
-from src.expenses.analytics import calculate_kpis
-from src.expenses.config import CATEGORY_COLORS
-from src.expenses.dash_app.data import (
+from app.dash.data import (
     PERIOD_LABELS,
     build_view,
     filter_options,
     kpi_cards,
     month_label,
 )
-from src.expenses.dash_app.figures import (
+from app.dash.figures import (
     category_figure,
     commitments_figure,
     merchants_figure,
     monthly_figure,
 )
-from src.expenses.dash_app.fmt import LABEL_PT_TO_KEY
-from src.expenses.dash_app.theme import PALETTE
+from app.dash.fmt import LABEL_PT_TO_KEY
+from app.dash.theme import PALETTE
+from src.expenses.analytics import calculate_kpis
+from src.expenses.config import CATEGORY_COLORS
 from src.expenses.filters import DEFAULT_FILTERS, apply_filters
 
 

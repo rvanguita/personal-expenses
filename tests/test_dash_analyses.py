@@ -5,8 +5,7 @@ import plotly.graph_objects as go
 import pytest
 from dash import dcc
 
-from src.expenses.analytics import get_recurring_merchants
-from src.expenses.dash_app.analyses import (
+from app.dash.analyses import (
     TICKET_LABELS,
     category_month_matrix,
     category_options,
@@ -18,15 +17,16 @@ from src.expenses.dash_app.analyses import (
     trends_view,
     watchlist_view,
 )
-from src.expenses.dash_app.callbacks import render_category, render_tab
-from src.expenses.dash_app.data import slice_data
-from src.expenses.dash_app.figures import (
+from app.dash.callbacks import render_category, render_tab
+from app.dash.data import slice_data
+from app.dash.figures import (
     category_history_figure,
     comparison_figure,
     limit_figure,
     yoy_figure,
 )
-from src.expenses.dash_app.theme import PALETTE
+from app.dash.theme import PALETTE
+from src.expenses.analytics import get_recurring_merchants
 
 
 def _walk(component):

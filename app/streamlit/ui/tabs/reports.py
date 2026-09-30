@@ -4,14 +4,14 @@ from datetime import UTC, datetime
 import pandas as pd
 import streamlit as st
 
+from app.streamlit.ui.figures import build_budget_vs_limit_figure, build_future_by_category_figure
+from app.streamlit.ui.styles import section
 from src.expenses.analytics import (
     get_future_installments_details,
     get_future_installments_projection,
     get_next_month_commitment_metrics,
 )
 from src.expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
-from src.expenses.ui.figures import build_budget_vs_limit_figure, build_future_by_category_figure
-from src.expenses.ui.styles import section
 
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")
 _DATE = st.column_config.DateColumn(format="YYYY-MM-DD")

@@ -1,7 +1,9 @@
 """Build / import smoke tests — catch a broken import in the app or a tab module before it ships,
 and assert the package and `main` do no database/Gemini work at import time."""
 
+import ast
 import importlib
+from pathlib import Path
 
 import pytest
 
@@ -46,39 +48,54 @@ def test_package_imports_and_reexports(no_db):
         assert callable(getattr(mod, name)), name
 
 
-def test_main_module_imports_without_running(no_db):
-    main = importlib.import_module("main")
+def test_streamlit_entrypoint_imports_without_running(no_db):
+    main = importlib.import_module("app.streamlit.main")
     assert callable(main.main)
 
 
 @pytest.mark.parametrize("tab", TAB_MODULES)
 def test_tab_module_imports(no_db, tab):
-    importlib.import_module(f"src.expenses.ui.tabs.{tab}")
+    importlib.import_module(f"app.streamlit.ui.tabs.{tab}")
 
 
 def test_all_render_funcs_exposed(no_db):
-    tabs_pkg = importlib.import_module("src.expenses.ui.tabs")
+    tabs_pkg = importlib.import_module("app.streamlit.ui.tabs")
     for fn in RENDER_FUNCS:
         assert callable(getattr(tabs_pkg, fn)), fn
 
 
 def test_dash_entrypoint_imports_without_running(no_db):
-    dash_app = importlib.import_module("dash_app")
-    assert callable(dash_app.main)
-    package = importlib.import_module("src.expenses.dash_app")
+    main = importlib.import_module("app.dash.main")
+    assert callable(main.main)
+    package = importlib.import_module("app.dash")
     assert callable(package.create_app)
 
 
-def test_dash_package_does_not_import_streamlit():
-    import ast
-    from pathlib import Path
+def _top_level_imports(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text())
+    return {
+        (node.module if isinstance(node, ast.ImportFrom) else alias.name).split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import | ast.ImportFrom) and not getattr(node, "level", 0)
+        for alias in node.names
+    }
 
-    for path in Path("src/expenses/dash_app").glob("*.py"):
-        tree = ast.parse(path.read_text())
-        imported = {
-            (node.module if isinstance(node, ast.ImportFrom) else alias.name).split(".")[0]
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Import | ast.ImportFrom)
-            for alias in node.names
-        }
-        assert "streamlit" not in imported, path
+
+@pytest.mark.parametrize(
+    ("folder", "forbidden"),
+    [
+        ("app/dash", "streamlit"),  # the Dash app never pulls in Streamlit
+        ("src/expenses", "streamlit"),  # the shared backend stays framework-free
+        ("src/expenses", "dash"),
+    ],
+)
+def test_package_does_not_import(folder, forbidden):
+    for path in Path(folder).glob("*.py"):
+        assert forbidden not in _top_level_imports(path), path
+
+
+def test_apps_do_not_import_each_other():
+    for path in Path("app/dash").rglob("*.py"):
+        assert "app.streamlit" not in path.read_text(), path
+    for path in Path("app/streamlit").rglob("*.py"):
+        assert "app.dash" not in path.read_text(), path

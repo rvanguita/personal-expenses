@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from app.dash.fmt import CATEGORY_LABELS_PT, brl, integer, pct
 from src.expenses.analytics import (
     _exclude_payments,
     calculate_kpis,
@@ -18,7 +19,6 @@ from src.expenses.analytics import (
     get_top_merchants,
 )
 from src.expenses.config import REFERENCE_BUDGET_LIMIT
-from src.expenses.dash_app.fmt import CATEGORY_LABELS_PT, brl, integer, pct
 from src.expenses.filters import DEFAULT_FILTERS, apply_filters, resolve_default_months
 
 # Period choices (keys are `filters.PERIOD_OPTIONS` values understood by resolve_default_months).

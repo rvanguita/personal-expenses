@@ -3,9 +3,9 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-from src.expenses.dash_app.data import DashboardView, month_label
-from src.expenses.dash_app.fmt import brl
-from src.expenses.dash_app.theme import (
+from app.dash.data import DashboardView, month_label
+from app.dash.fmt import brl
+from app.dash.theme import (
     ACCENT,
     AVERAGE,
     CARD,

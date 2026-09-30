@@ -1,7 +1,7 @@
 """Read-only Dash dashboard: how much was spent, where, and what is already committed.
 
 Framework pieces: `theme` (tokens), `data` (view model over `analytics.py`), `figures` (Plotly),
-`layout` (static structure) and `callbacks`. Styles live in the repo-level `assets/` folder.
+`layout` (static structure) and `callbacks`. Styles live in `app/dash/assets/`.
 """
 
 from collections.abc import Callable
@@ -10,11 +10,11 @@ from pathlib import Path
 import pandas as pd
 from dash import Dash
 
-from src.expenses.dash_app.callbacks import register_callbacks, update_dashboard
-from src.expenses.dash_app.data import build_view, filter_options, kpi_cards
-from src.expenses.dash_app.layout import build_layout
+from app.dash.callbacks import register_callbacks, update_dashboard
+from app.dash.data import build_view, filter_options, kpi_cards
+from app.dash.layout import build_layout
 
-ASSETS_DIR = Path(__file__).resolve().parents[3] / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 
 def create_app(loader: Callable[[], pd.DataFrame] | None = None) -> Dash:

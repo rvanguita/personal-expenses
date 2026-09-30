@@ -1,19 +1,19 @@
 import pandas as pd
 import streamlit as st
 
+from app.streamlit.ui.figures import (
+    build_category_distribution_figure,
+    build_top_merchants_figure,
+    build_trend_figure,
+)
+from app.streamlit.ui.insights import attention_insights
+from app.streamlit.ui.styles import render_attention
 from src.expenses.analytics import (
     calculate_kpis,
     get_moving_average,
     get_next_month_commitment_metrics,
 )
 from src.expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
-from src.expenses.ui.figures import (
-    build_category_distribution_figure,
-    build_top_merchants_figure,
-    build_trend_figure,
-)
-from src.expenses.ui.insights import attention_insights
-from src.expenses.ui.styles import render_attention
 
 
 def _render_kpis(kpis: dict, df_full: pd.DataFrame) -> None:

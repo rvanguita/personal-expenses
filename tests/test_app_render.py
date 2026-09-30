@@ -11,7 +11,7 @@ from streamlit.testing.v1 import AppTest
 
 from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
 
-MAIN_SCRIPT = str(Path(__file__).resolve().parents[1] / "main.py")
+MAIN_SCRIPT = str(Path(__file__).resolve().parents[1] / "app" / "streamlit" / "main.py")
 
 EXPECTED_TABS = [
     "Overview",
@@ -44,7 +44,7 @@ def _returning(frame: pd.DataFrame | None):
 @pytest.fixture
 def offline_app(monkeypatch):
     """Factory: ``offline_app(analytics_frame, raw=, bronze=, silver_layer=)`` -> AppTest for
-    ``main.py`` with every DB read stubbed. ``analytics_frame`` feeds ``load_expenses_data``; the
+    ``app/streamlit/main.py`` with every DB read stubbed. ``analytics_frame`` feeds ``load_expenses_data``; the
     layer frames feed the Categorize / Manage Data tabs (empty when omitted)."""
 
     def _factory(
@@ -60,8 +60,8 @@ def offline_app(monkeypatch):
         categorizer = importlib.import_module("src.expenses.ai_categorizer")
         monkeypatch.setattr(categorizer, "get_db_engine", lambda *_a, **_k: None)
         monkeypatch.setattr(categorizer, "create_medallion_tables", lambda *_a, **_k: None)
-        categorize = importlib.import_module("src.expenses.ui.tabs.categorize_tab")
-        management = importlib.import_module("src.expenses.ui.tabs.management")
+        categorize = importlib.import_module("app.streamlit.ui.tabs.categorize_tab")
+        management = importlib.import_module("app.streamlit.ui.tabs.management")
         for module in (categorize, management):
             monkeypatch.setattr(module, "get_db_engine", lambda *_a, **_k: None)
             monkeypatch.setattr(module, "load_bronze_data", _returning(bronze))

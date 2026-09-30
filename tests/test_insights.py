@@ -1,6 +1,6 @@
+from app.streamlit.ui import insights
+from app.streamlit.ui.insights import Insight, attention_insights, uncategorized_insight
 from src.expenses.analytics import calculate_kpis
-from src.expenses.ui import insights
-from src.expenses.ui.insights import Insight, attention_insights, uncategorized_insight
 
 
 def _kpis(installment_pct: float) -> dict:

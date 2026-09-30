@@ -3,8 +3,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-from src.expenses.dash_app import create_app, update_dashboard
-from src.expenses.dash_app.layout import FIGURE_IDS
+from app.dash import create_app, update_dashboard
+from app.dash.layout import FIGURE_IDS
 
 
 def _ids(component) -> set[str]:

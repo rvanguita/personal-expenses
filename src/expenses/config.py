@@ -27,10 +27,22 @@ MYSQL_DB_SILVER = os.getenv("MYSQL_DB_SILVER", "silver")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
+# Repository root. Project files (data/, template/) are resolved against it, not the current
+# directory, because each app under app/ runs from its own folder.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROMPT_TEMPLATE_PATH = PROJECT_ROOT / "template" / "prompt.md"
+
+
+def _project_path(value: str | Path) -> Path:
+    """Absolute paths are kept; relative ones are taken from the repository root."""
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 # Category dictionary paths. The tracked seed is immutable; runtime learning is written to a
 # git-ignored local file so merchant-derived data cannot be committed accidentally.
-CATEGORY_SEED_PATH = Path("data/categories.default.json")
-CATEGORY_LOCAL_PATH = Path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.local.json"))
+CATEGORY_SEED_PATH = PROJECT_ROOT / "data" / "categories.default.json"
+CATEGORY_LOCAL_PATH = _project_path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.local.json"))
 
 # Streamlit Port Configuration
 STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", os.getenv("STREAMLIT_SERVER_PORT", "8503")))

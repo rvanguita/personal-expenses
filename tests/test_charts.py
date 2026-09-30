@@ -1,8 +1,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-import src.expenses.ui.charts as charts
-from src.expenses.ui.charts import add_total_line_trace, build_ranked_bar_chart
+import app.streamlit.ui.charts as charts
+from app.streamlit.ui.charts import add_total_line_trace, build_ranked_bar_chart
 
 
 def test_add_total_line_trace_has_no_on_plot_labels():

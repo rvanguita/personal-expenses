@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 
+from app.streamlit.ui.figures import build_period_comparison_figure, build_yoy_figure
 from src.expenses.analytics import (
     get_category_momentum,
     get_period_over_period_comparison,
@@ -8,7 +9,6 @@ from src.expenses.analytics import (
     get_year_over_year_comparison,
 )
 from src.expenses.config import format_currency_br
-from src.expenses.ui.figures import build_period_comparison_figure, build_yoy_figure
 
 _DIRECTION = {"up": "Rising", "down": "Falling", "stable": "Stable"}
 _MOMENTUM_LABELS = {"rising": "▲ Rising", "falling": "▼ Falling", "stable": "Stable"}

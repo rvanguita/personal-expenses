@@ -129,8 +129,8 @@ DASH_PORT="8050"
 ### Iniciar a aplicação
 
 ```bash
-uv run streamlit run main.py   # app completo em http://localhost:8503
-uv run python dash_app.py      # dashboard Dash (somente leitura) em http://localhost:8050
+uv run --directory app/streamlit streamlit run main.py   # app completo em http://localhost:8503
+uv run --directory app/dash python main.py               # dashboard Dash (somente leitura) em http://localhost:8050
 ```
 
 O Dash traz as análises do Streamlit e algumas próprias, em português (valores como R$ 1.234,56) e modo escuro, com as cores de cada categoria: **Visão geral**, **Tendências** (período anterior, ano anterior, mapa de calor categoria × mês e momento das categorias), **Hábitos** (à vista vs parcelado, faixas de valor, dia da semana, gasto por titular e concentração nos maiores estabelecimentos), **Atenção** (recorrências, compras atípicas, sem categoria, estabelecimentos novos e mudança de frequência), **Categorias** (detalhe de uma categoria) e **Relatórios** (parcelas contra o limite, totais por fatura e download em CSV). Importação, categorização e manutenção continuam no Streamlit.
@@ -142,7 +142,7 @@ docker compose up --build -d
 docker compose logs -f streamlit dash
 ```
 
-O Compose inicia o Streamlit (`:8503`) e o Dash (`:8050`). O MySQL deve estar acessível a partir da rede do container.
+O `docker-compose.yml` da raiz inicia dois serviços, cada um construído a partir do Dockerfile da própria aplicação: `streamlit` (`app/streamlit/Dockerfile`, `:8503`) e `dash` (`app/dash/Dockerfile`, `:8050`). O MySQL deve estar acessível a partir da rede do container.
 
 ## Categorias e aprendizado local
 
@@ -172,10 +172,19 @@ A suíte cobre parsing de CSV, transformação medalhão, deduplicação, catego
 
 ```text
 personal-expenses/
+├── app/
+│   ├── streamlit/                # aplicação Streamlit
+│   │   ├── main.py               # entrada
+│   │   ├── Dockerfile
+│   │   ├── .streamlit/           # tema e configuração
+│   │   └── ui/                   # componentes, gráficos e abas
+│   └── dash/                     # aplicação Dash (somente leitura)
+│       ├── main.py               # entrada
+│       ├── Dockerfile
+│       ├── assets/               # CSS
+│       └── *.py                  # dados, análises, figuras, layout, callbacks
 ├── data/                         # seed público de categorias; dados locais são ignorados
-├── src/expenses/
-│   ├── dash_app/                 # dashboard Dash (dados, figuras, layout, callbacks)
-│   ├── ui/                       # componentes, gráficos e abas Streamlit
+├── src/expenses/                 # backend compartilhado pelas duas aplicações
 │   ├── ai_categorizer.py         # matching local e integração Gemini
 │   ├── analytics.py              # métricas, tendências e projeções
 │   ├── config.py                 # configuração e metadados compartilhados
@@ -183,11 +192,7 @@ personal-expenses/
 │   └── parser.py                 # leitura e padronização dos CSVs
 ├── template/                     # prompt de categorização
 ├── tests/                        # suíte unitária e smoke tests
-├── assets/                       # CSS do dashboard Dash
-├── dash_app.py                   # entrada do Dash
-├── main.py                       # entrada do Streamlit
-├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml            # sobe as duas aplicações
 └── pyproject.toml
 ```
 

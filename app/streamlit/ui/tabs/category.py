@@ -1,10 +1,10 @@
 import pandas as pd
 import streamlit as st
 
+from app.streamlit.ui.charts import build_ranked_bar_chart
+from app.streamlit.ui.figures import build_category_monthly_figure
 from src.expenses.analytics import get_category_momentum
 from src.expenses.config import CATEGORY_CONFIG, DAY_OF_WEEK_LABELS_PT, format_currency_br
-from src.expenses.ui.charts import build_ranked_bar_chart
-from src.expenses.ui.figures import build_category_monthly_figure
 
 _DOW_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")

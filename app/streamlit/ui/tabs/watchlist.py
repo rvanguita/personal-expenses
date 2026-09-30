@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 
+from app.streamlit.ui.styles import section
 from src.expenses.analytics import (
     get_merchant_frequency_change,
     get_recurring_merchants,
@@ -13,7 +14,6 @@ from src.expenses.config import (
     RECURRING_MIN_MONTHS,
     format_currency_br,
 )
-from src.expenses.ui.styles import section
 
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")
 _STATUS = {"Increased": "▲ Increased", "Decreased": "▼ Decreased", "Stable": "Stable"}

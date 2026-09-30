@@ -1,4 +1,4 @@
-/* Dash dashboard — dark theme. Tokens mirror src/expenses/dash_app/theme.py. */
+/* Dash dashboard — dark theme. Tokens mirror app/dash/theme.py. */
 :root {
   color-scheme: dark;
   --bg: #0f1117;

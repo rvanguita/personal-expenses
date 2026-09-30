@@ -102,3 +102,13 @@ def test_category_dictionary_merges_seed_and_local_without_mutating_seed(tmp_pat
     assert json.loads(local_path.read_text(encoding="utf-8")) == {
         "food": ["Bakery", "Cafe", "Restaurant"]
     }
+
+
+def test_project_files_resolve_from_any_directory(monkeypatch, tmp_path):
+    # Each app runs from its own folder under app/, so project files must not depend on the cwd.
+    monkeypatch.chdir(tmp_path)
+    assert config.CATEGORY_SEED_PATH.is_absolute() and config.CATEGORY_SEED_PATH.exists()
+    assert config.PROMPT_TEMPLATE_PATH.is_absolute() and config.PROMPT_TEMPLATE_PATH.exists()
+    assert config.CATEGORY_LOCAL_PATH.is_absolute()
+    assert config._project_path("data/x.json") == config.PROJECT_ROOT / "data" / "x.json"
+    assert config._project_path(tmp_path / "x.json") == tmp_path / "x.json"

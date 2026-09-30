@@ -1,5 +1,5 @@
-from src.expenses.ui.sidebar import render_sidebar
-from src.expenses.ui.styles import (
+from app.streamlit.ui.sidebar import render_sidebar
+from app.streamlit.ui.styles import (
     apply_custom_styles,
     render_amount_visibility_css,
     render_attention,

@@ -1,6 +1,5 @@
 import json
 import re
-from pathlib import Path
 
 import pandas as pd
 import sqlalchemy
@@ -11,6 +10,7 @@ from src.expenses.config import (
     MYSQL_DB_RAW,
     MYSQL_DB_SILVER,
     MYSQL_TABLE,
+    PROMPT_TEMPLATE_PATH,
     load_category_dictionary,
     read_file,
     save_local_category_dictionary,
@@ -124,7 +124,7 @@ def gemini_categorize_unmatched(df_unmatched: pd.DataFrame) -> pd.DataFrame:
     if df_unmatched.empty or "id" not in df_unmatched.columns:
         return pd.DataFrame(columns=["id", "category", "motivation", "categorized_by"])
 
-    path_prompt = Path("template/prompt.md")
+    path_prompt = PROMPT_TEMPLATE_PATH
     categories = load_category_dictionary()
 
     try:

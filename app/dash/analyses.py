@@ -6,6 +6,8 @@ calls `analytics.py`. Results are plain dicts of numbers and DataFrames; `layout
 
 import pandas as pd
 
+from app.dash.data import _MONTHS_PT, slice_data
+from app.dash.fmt import CATEGORY_LABELS_PT, WEEKDAYS_PT
 from src.expenses.analytics import (
     _exclude_payments,
     get_category_momentum,
@@ -26,8 +28,6 @@ from src.expenses.config import (
     RECURRING_MIN_MONTHS,
     REFERENCE_BUDGET_LIMIT,
 )
-from src.expenses.dash_app.data import _MONTHS_PT, slice_data
-from src.expenses.dash_app.fmt import CATEGORY_LABELS_PT, WEEKDAYS_PT
 
 TREND_LABELS = {"up": "Em alta", "down": "Em queda", "stable": "Estável"}
 MOMENTUM_LABELS = {"rising": "▲ Subindo", "falling": "▼ Caindo", "stable": "Estável"}

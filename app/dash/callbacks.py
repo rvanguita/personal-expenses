@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pandas as pd
 from dash import Dash, Input, Output, State, dcc, html, no_update
 
-from src.expenses.dash_app.analyses import (
+from app.dash.analyses import (
     category_view,
     export_frame,
     habits_view,
@@ -13,15 +13,15 @@ from src.expenses.dash_app.analyses import (
     trends_view,
     watchlist_view,
 )
-from src.expenses.dash_app.data import DEFAULT_PERIOD, build_view, kpi_cards
-from src.expenses.dash_app.figures import (
+from app.dash.data import DEFAULT_PERIOD, build_view, kpi_cards
+from app.dash.figures import (
     category_figure,
     commitments_figure,
     merchants_figure,
     monthly_figure,
 )
-from src.expenses.dash_app.layout import FIGURE_IDS, kpi_card, purchases_table
-from src.expenses.dash_app.pages import (
+from app.dash.layout import FIGURE_IDS, kpi_card, purchases_table
+from app.dash.pages import (
     category_page,
     habits_page,
     reports_page,

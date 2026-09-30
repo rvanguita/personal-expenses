@@ -9,13 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from src.expenses.analytics import get_top_merchants
-from src.expenses.config import (
-    CATEGORY_COLOR_MAP,
-    format_currency_br,
-    get_category_color,
-)
-from src.expenses.ui.charts import (
+from app.streamlit.ui.charts import (
     EMPHASIS_ACCENT,
     EMPHASIS_MUTED,
     add_total_line_trace,
@@ -23,6 +17,12 @@ from src.expenses.ui.charts import (
     apply_chart_theme,
     budget_status_color,
     build_ranked_bar_chart,
+)
+from src.expenses.analytics import get_top_merchants
+from src.expenses.config import (
+    CATEGORY_COLOR_MAP,
+    format_currency_br,
+    get_category_color,
 )
 
 

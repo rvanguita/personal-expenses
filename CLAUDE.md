@@ -8,14 +8,32 @@ Web app for ingesting, categorizing (via Google Gemini AI), and analyzing person
 expenses, backed by a MySQL **Medallion Architecture** (Raw → Bronze → Silver). Package/dependency
 management is via `uv`.
 
-**Two frontends.** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
-`analytics.py` + `config.py` + `filters.apply_filters` and the framework-agnostic
-`ui/charts.py` (theme/hide-amounts via `chart_context`), `ui/figures.py` (figure builders) and
-`ui/insights.py` (`Insight` cards). **Add new charts/insights to `figures.py` / `insights.py`, not
-inline in a tab.** `charts.py`, `figures.py`, `insights.py` must not import Streamlit at module level.
+**Layout.** The shared, framework-free backend lives in `src/expenses/` (config, database, parser,
+analytics, filters, ai_categorizer, runtime) plus `data/` and `template/`. Each frontend is a
+self-contained folder under `app/`, with its own `main.py` entrypoint and `Dockerfile`:
 
-`dash_app.py` — **Dash** read-only dashboard (`src/expenses/dash_app/`), port `DASH_PORT` (`8050`).
-See *Dash frontend* below; it shares no UI code with the Streamlit app.
+```
+app/streamlit/  main.py · Dockerfile · .streamlit/config.toml · ui/ (tabs/, charts, figures, insights, styles, sidebar)
+app/dash/       main.py · Dockerfile · assets/dashboard.css · analyses, callbacks, data, figures, fmt, layout, pages, theme
+```
+
+- Imports: backend as `src.expenses.*`; app code as `app.streamlit.ui.*` / `app.dash.*`. The two
+  apps never import each other, and `src/expenses/` imports neither Streamlit nor Dash (all
+  enforced in `tests/test_app_imports.py`).
+- Each `main.py` puts the repo root on `sys.path` (`streamlit run` / `python main.py` only add the
+  script's folder), hence the `E402` per-file ignore in `pyproject.toml`.
+- Each app runs **from its own folder** (Streamlit only reads `.streamlit/config.toml` from the
+  current directory), so project files are resolved from `config.PROJECT_ROOT`, never the cwd:
+  `CATEGORY_SEED_PATH`, `CATEGORY_LOCAL_PATH` (relative values are taken from the repo root) and
+  `PROMPT_TEMPLATE_PATH`. Keep new file paths anchored the same way.
+
+**Streamlit** (`app/streamlit/`, port `8503`) consumes `analytics.py` + `config.py` +
+`filters.apply_filters` and the framework-agnostic `ui/charts.py` (theme/hide-amounts via
+`chart_context`), `ui/figures.py` (figure builders) and `ui/insights.py` (`Insight` cards). **Add new
+charts/insights to `figures.py` / `insights.py`, not inline in a tab.** `charts.py`, `figures.py`,
+`insights.py` must not import Streamlit at module level.
+
+**Dash** (`app/dash/`, port `DASH_PORT` = `8050`) is a read-only dashboard; see *Dash frontend* below.
 
 The former Streamlit coupling in `database.py` / `parser.py` / `ai_categorizer.py` lives behind
 `src/expenses/runtime.py` (`cache_data`, `cache_resource`, `clear_caches`, `notify_error`,
@@ -28,11 +46,11 @@ test suite imports them with no Streamlit runtime).
 # Install dependencies (including dev group)
 uv sync --all-groups
 
-# Run the Streamlit app (port 8503, from .env STREAMLIT_PORT)
-uv run streamlit run main.py
+# Run the Streamlit app (port 8503) — from its folder so .streamlit/config.toml applies
+uv run --directory app/streamlit streamlit run main.py
 
 # Run the Dash dashboard (port 8050, from .env DASH_PORT)
-uv run python dash_app.py
+uv run --directory app/dash python main.py
 
 # Run all tests
 uv run pytest
@@ -47,14 +65,14 @@ uv run ruff format .            # CI runs `ruff format --check .`
 
 # Docker Compose (`streamlit` = :8503, `dash` = :8050, same image)
 docker compose up --build -d
-docker compose logs -f streamlit
+docker compose logs -f streamlit dash
 # After renaming/removing a service, drop the old fixed-name container once:
 docker compose down --remove-orphans
 ```
 
 CI (`.github/workflows/ci.yml`) runs on **every branch push**, **every PR**, and manual dispatch
 (per-ref `concurrency` cancels superseded runs): `uv sync --all-groups --locked` (fails on
-`pyproject`/`uv.lock` drift, matching the Dockerfile's `--frozen`), `uv run ruff check .`,
+`pyproject`/`uv.lock` drift, matching the Dockerfiles' `--frozen`), `uv run ruff check .`,
 `uv run ruff format --check .`, then `uv run pytest`.
 
 Environment variables live in `.env` (see `.env.example`): `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`,
@@ -140,8 +158,8 @@ existing KPIs.
 
 ### UI structure
 
-`main.py` wires global sidebar filters (`src/expenses/ui/sidebar.py`) applied to a `df_full` loaded from
-Silver, producing `df_filtered`, then renders 6 top-level tabs from `src/expenses/ui/tabs/` — five
+`app/streamlit/main.py` wires global sidebar filters (`ui/sidebar.py`) applied to a `df_full` loaded from
+Silver, producing `df_filtered`, then renders 6 top-level tabs from `ui/tabs/` — five
 analytic tabs, each answering **one question**, then a **Data** tab that nests the three write paths:
 
 | Tab (module) | Question | Content |
@@ -162,7 +180,7 @@ strip; "all good" is a quiet caption, and cards show no icon (severity color onl
 axis is money: `charts.apply_chart_theme` sets `R$` ticks and no axis title. Use `width="stretch"`, never the deprecated `use_container_width`.
 
 Each tab module exposes a single `render_*_tab(...)` function imported via
-`src/expenses/ui/tabs/__init__.py`. Most tabs take `(df_filtered, df_full)`; ingestion/categorization/
+`ui/tabs/__init__.py`. Most tabs take `(df_filtered, df_full)`; ingestion/categorization/
 management tabs take a MySQL `engine` instead (or in addition) since they write data rather than just
 visualize it.
 
@@ -181,12 +199,12 @@ search live in "More filters"; a "Display" expander holds:
   `st.metric` call sites.
 - **Reload data** — `runtime.clear_caches()` + rerun.
 
-The theme is fixed dark in `.streamlit/config.toml` (same palette as the Dash app; toolbar in
+The theme is fixed dark in `app/streamlit/.streamlit/config.toml` (same palette as the Dash app; toolbar in
 `viewer` mode). `ui/charts.py` still derives grid / tick colors from `st.get_option("theme.base")`.
 
 ### Dash frontend
 
-`src/expenses/dash_app/` is a read-only app (writes stay in the Streamlit **Data** tab). Header +
+`app/dash/` is a read-only app (writes stay in the Streamlit **Data** tab). Header +
 three global filters (period, holders, categories) sit above six `dcc.Tabs`, covering the
 Streamlit analyses plus a few Dash-only ones, all in pt-BR:
 
@@ -219,7 +237,7 @@ Streamlit analyses plus a few Dash-only ones, all in pt-BR:
   tested bodies); CSV via `dcc.Download`.
 - `create_app(loader=None)` in `__init__.py`; `loader` defaults to `load_expenses_data` (imported
   lazily). `app.layout` is a function so filter options refresh on page load.
-- Styles: repo-level `assets/dashboard.css` (dark theme; overrides Dash 4's `--Dash-*` variables
+- Styles: `app/dash/assets/dashboard.css` (dark theme; overrides Dash 4's `--Dash-*` variables
   for dropdowns and styles `dcc.Tabs` via `pe-tab*` classes). The package must not import
   Streamlit (tested).
 
@@ -229,8 +247,8 @@ Tests are pure unit tests over DataFrame transforms (parser, analytics, `databas
 + dedup key), `config.py` helpers (currency formatting, category mappings, `normalize_merchant_id`),
 `filters.apply_filters` (`test_filters.py`), `ai_categorizer` matching / Gemini-response reshaping with
 `gemini_category` stubbed (`test_categorizer.py`), `ui/insights` selection logic (`test_insights.py`), an
-import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules (5 analytic + 3 data) with the DB entrypoints monkeypatched to raise
-(`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
+import smoke that loads both `app/*/main.py` + all 8 Streamlit tab modules (5 analytic + 3 data) with the DB entrypoints monkeypatched to raise
+(`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `app/streamlit/main.py` through
 `streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
 `silver_history_df` fixture — no database or Gemini API calls are hit. The Dash app is covered by
 `test_dash_data.py` (Overview view model + figure colors), `test_dash_analyses.py` (secondary tab

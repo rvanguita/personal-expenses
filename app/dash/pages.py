@@ -2,14 +2,9 @@
 
 from dash import html
 
-from src.expenses.config import (
-    ANOMALY_Z_THRESHOLD,
-    RECURRING_MIN_MONTHS,
-    UNCATEGORIZED_WARNING_PCT,
-)
-from src.expenses.dash_app.analyses import FREQUENCY_LABELS, MOMENTUM_LABELS, STATUS_LABELS
-from src.expenses.dash_app.data import month_label, spend_delta
-from src.expenses.dash_app.figures import (
+from app.dash.analyses import FREQUENCY_LABELS, MOMENTUM_LABELS, STATUS_LABELS
+from app.dash.data import month_label, spend_delta
+from app.dash.figures import (
     bands_figure,
     category_history_figure,
     comparison_figure,
@@ -21,9 +16,14 @@ from src.expenses.dash_app.figures import (
     weekday_figure,
     yoy_figure,
 )
-from src.expenses.dash_app.fmt import LABEL_PT_TO_KEY, brl, integer, pct
-from src.expenses.dash_app.layout import card, empty, graph, kpi_row, row, table
-from src.expenses.dash_app.theme import category_color
+from app.dash.fmt import LABEL_PT_TO_KEY, brl, integer, pct
+from app.dash.layout import card, empty, graph, kpi_row, row, table
+from app.dash.theme import category_color
+from src.expenses.config import (
+    ANOMALY_Z_THRESHOLD,
+    RECURRING_MIN_MONTHS,
+    UNCATEGORIZED_WARNING_PCT,
+)
 
 NO_ROWS = "Nenhuma transação para os filtros selecionados."
 

@@ -1,11 +1,13 @@
 name: expenses
 
+# One service per app under app/, each built from its own Dockerfile with the repository root as
+# build context (the apps share src/, data/ and template/).
 services:
   streamlit:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: expenses:latest
+      dockerfile: app/streamlit/Dockerfile
+    image: expenses-streamlit:latest
     container_name: expenses-streamlit
     restart: unless-stopped
     ports:
@@ -20,22 +22,17 @@ services:
       - ./data:/app/data
 
   dash:
-    image: expenses:latest
-    depends_on:
-      - streamlit # builds the shared image
+    build:
+      context: .
+      dockerfile: app/dash/Dockerfile
+    image: expenses-dash:latest
     container_name: expenses-dash
     restart: unless-stopped
-    command: ["uv", "run", "--no-sync", "python", "dash_app.py"]
     ports:
       - "${DASH_PORT:-8050}:8050"
     env_file:
       - .env
     environment:
       - DASH_PORT=8050
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8050/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     volumes:
       - ./data:/app/data

@@ -1,15 +1,27 @@
-# %%
+"""Streamlit app entrypoint.
+
+Run from the repo root with ``uv run --directory app/streamlit streamlit run main.py`` (port 8503);
+Streamlit reads ``.streamlit/config.toml`` from the current directory, i.e. this folder.
+"""
+
+import sys
+from pathlib import Path
+
+# `streamlit run` / `python main.py` only put this folder on sys.path; the shared backend
+# (`src.expenses`) and this app's package (`app.*`) are imported from the project root.
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import streamlit as st
 
-from src.expenses.database import get_db_engine, load_expenses_data
-from src.expenses.filters import apply_filters
-from src.expenses.ui import (
+from app.streamlit.ui import (
     apply_custom_styles,
     render_amount_visibility_css,
     render_header,
     render_sidebar,
 )
-from src.expenses.ui.tabs import (
+from app.streamlit.ui.tabs import (
     render_categorize_tab,
     render_category_tab,
     render_dashboard_tab,
@@ -19,6 +31,8 @@ from src.expenses.ui.tabs import (
     render_trends_tab,
     render_watchlist_tab,
 )
+from src.expenses.database import get_db_engine, load_expenses_data
+from src.expenses.filters import apply_filters
 
 
 def main():

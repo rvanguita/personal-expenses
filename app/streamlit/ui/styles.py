@@ -2,7 +2,7 @@ import re
 
 import streamlit as st
 
-from src.expenses.ui.charts import STATUS_COLORS
+from app.streamlit.ui.charts import STATUS_COLORS
 
 _SEVERITY_COLORS = {
     "info": "#4C9BE8",
