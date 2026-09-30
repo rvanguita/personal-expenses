@@ -80,7 +80,7 @@ A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e t
 
 | Responsabilidade | Tecnologias |
 | --- | --- |
-| Interface e visualização | Streamlit, Plotly |
+| Interface e visualização | Streamlit, Dash, Plotly |
 | Processamento | Python, Pandas, NumPy |
 | Persistência | MySQL, SQLAlchemy, PyMySQL |
 | Categorização assistida | Google Gemini |
@@ -123,24 +123,26 @@ GEMINI_MODEL="gemini-3.6-flash"
 REFERENCE_BUDGET_LIMIT="10000"
 CATEGORY_LOCAL_PATH="data/categories.local.json"
 STREAMLIT_PORT="8503"
+DASH_PORT="8050"
 ```
 
 ### Iniciar a aplicação
 
 ```bash
-uv run streamlit run main.py
+uv run streamlit run main.py   # app completo em http://localhost:8503
+uv run python dash_app.py      # dashboard Dash (somente leitura) em http://localhost:8050
 ```
 
-O Streamlit estará disponível em `http://localhost:8503`.
+O dashboard Dash responde a uma pergunta direta, quanto foi gasto, onde e o que já está comprometido em parcelas, em modo escuro e com as cores de cada categoria. Importação, categorização e manutenção continuam no Streamlit.
 
 ### Executar com Docker
 
 ```bash
 docker compose up --build -d
-docker compose logs -f streamlit
+docker compose logs -f streamlit dash
 ```
 
-O Compose inicia somente a aplicação. O MySQL deve estar acessível a partir da rede do container.
+O Compose inicia o Streamlit (`:8503`) e o Dash (`:8050`). O MySQL deve estar acessível a partir da rede do container.
 
 ## Categorias e aprendizado local
 
@@ -172,6 +174,7 @@ A suíte cobre parsing de CSV, transformação medalhão, deduplicação, catego
 personal-expenses/
 ├── data/                         # seed público de categorias; dados locais são ignorados
 ├── src/expenses/
+│   ├── dash_app/                 # dashboard Dash (dados, figuras, layout, callbacks)
 │   ├── ui/                       # componentes, gráficos e abas Streamlit
 │   ├── ai_categorizer.py         # matching local e integração Gemini
 │   ├── analytics.py              # métricas, tendências e projeções
@@ -180,7 +183,9 @@ personal-expenses/
 │   └── parser.py                 # leitura e padronização dos CSVs
 ├── template/                     # prompt de categorização
 ├── tests/                        # suíte unitária e smoke tests
-├── main.py                       # entrada da aplicação
+├── assets/                       # CSS do dashboard Dash
+├── dash_app.py                   # entrada do Dash
+├── main.py                       # entrada do Streamlit
 ├── Dockerfile
 ├── docker-compose.yml
 └── pyproject.toml

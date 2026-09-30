@@ -18,3 +18,24 @@ services:
     volumes:
       # Persist the AI category dictionary (grown by the categorization pipeline) into the container
       - ./data:/app/data
+
+  dash:
+    image: expenses:latest
+    depends_on:
+      - streamlit # builds the shared image
+    container_name: expenses-dash
+    restart: unless-stopped
+    command: ["uv", "run", "--no-sync", "python", "dash_app.py"]
+    ports:
+      - "${DASH_PORT:-8050}:8050"
+    env_file:
+      - .env
+    environment:
+      - DASH_PORT=8050
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8050/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./data:/app/data

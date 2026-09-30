@@ -28,13 +28,14 @@ COPY src/ ./src/
 COPY data/ ./data/
 COPY template/ ./template/
 COPY .streamlit/ ./.streamlit/
-COPY main.py ./
+COPY main.py dash_app.py ./
+COPY assets/ ./assets/
 
 # Install project itself
 RUN uv sync --frozen --no-dev
 
-# Streamlit application port
-EXPOSE 8503
+# Streamlit (8503) and Dash (8050) application ports
+EXPOSE 8503 8050
 
 # Healthcheck for the Streamlit command
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

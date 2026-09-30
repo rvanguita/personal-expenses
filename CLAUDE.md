@@ -8,11 +8,14 @@ Web app for ingesting, categorizing (via Google Gemini AI), and analyzing person
 expenses, backed by a MySQL **Medallion Architecture** (Raw → Bronze → Silver). Package/dependency
 management is via `uv`.
 
-**One frontend:** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
+**Two frontends.** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
 `analytics.py` + `config.py` + `filters.apply_filters` and the framework-agnostic
 `ui/charts.py` (theme/hide-amounts via `chart_context`), `ui/figures.py` (figure builders) and
 `ui/insights.py` (`Insight` cards). **Add new charts/insights to `figures.py` / `insights.py`, not
 inline in a tab.** `charts.py`, `figures.py`, `insights.py` must not import Streamlit at module level.
+
+`dash_app.py` — **Dash** read-only dashboard (`src/expenses/dash_app/`), port `DASH_PORT` (`8050`).
+See *Dash frontend* below; it shares no UI code with the Streamlit app.
 
 The former Streamlit coupling in `database.py` / `parser.py` / `ai_categorizer.py` lives behind
 `src/expenses/runtime.py` (`cache_data`, `cache_resource`, `clear_caches`, `notify_error`,
@@ -28,6 +31,9 @@ uv sync --all-groups
 # Run the Streamlit app (port 8503, from .env STREAMLIT_PORT)
 uv run streamlit run main.py
 
+# Run the Dash dashboard (port 8050, from .env DASH_PORT)
+uv run python dash_app.py
+
 # Run all tests
 uv run pytest
 
@@ -39,7 +45,7 @@ uv run pytest tests/test_analytics.py::test_calculate_kpis_basic
 uv run ruff check .
 uv run ruff format .            # CI runs `ruff format --check .`
 
-# Docker Compose (single `streamlit` service = :8503)
+# Docker Compose (`streamlit` = :8503, `dash` = :8050, same image)
 docker compose up --build -d
 docker compose logs -f streamlit
 # After renaming/removing a service, drop the old fixed-name container once:
@@ -54,7 +60,7 @@ CI (`.github/workflows/ci.yml`) runs on **every branch push**, **every PR**, and
 Environment variables live in `.env` (see `.env.example`): `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`,
 `MYSQL_PASSWORD`, `MYSQL_TABLE` (unified table name across all three DBs), `MYSQL_DB_RAW`,
 `MYSQL_DB_BRONZE`, `MYSQL_DB_SILVER`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
-`REFERENCE_BUDGET_LIMIT`, `CATEGORY_LOCAL_PATH`, `STREAMLIT_PORT`.
+`REFERENCE_BUDGET_LIMIT`, `CATEGORY_LOCAL_PATH`, `STREAMLIT_PORT`, `DASH_PORT`.
 Tests do not require a live MySQL/Gemini connection — they exercise pure data-transform functions.
 **Do not run ad-hoc scripts that call `database.py` write helpers** (`ingest_raw_bronze`,
 `save_dataframe_replace`, `repopulate_silver_layer`, `deduplicate_all_layers`): if `.env` points at a
@@ -179,16 +185,37 @@ DB is empty and *not* part of the returned filter dict:
   the fallback) and `ui/charts.py` derives grid / tick / total-line colors from
   `st.get_option("theme.base")` so figures track the active base.
 
+### Dash frontend
+
+`src/expenses/dash_app/` is a single read-only page answering *how much did I spend, where, and
+what is already committed?* (writes stay in the Streamlit Ingest/Categorize/Manage tabs):
+
+- `data.py` — `build_view(df_full, period, holders, categories) -> DashboardView`, built only from
+  `analytics.py` / `filters.py`; plus `filter_options`, `kpi_cards`, `month_label`. **Add new
+  numbers here, not in callbacks.** Installment commitments use the holder/category scope but
+  ignore the period.
+- `figures.py` — Plotly builders; `theme.py` — dark-theme tokens and `plotly_layout()`.
+  Category bars use `config.CATEGORY_CONFIG` colors (merchants take their dominant category's);
+  other series use `ACCENT` / `AVERAGE` / `COMMITMENT`. Figures may only use `theme.PALETTE`
+  (tested).
+- `layout.py` — static structure (header, 3 dropdowns, 4 KPI cards, 4 graphs, purchases table);
+  `callbacks.py` — pure `update_dashboard(df_full, period, holders, categories)` + one callback.
+- `create_app(loader=None)` in `__init__.py`; `loader` defaults to `load_expenses_data` (imported
+  lazily). `app.layout` is a function so filter options refresh on page load.
+- Styles: repo-level `assets/dashboard.css` (dark theme; overrides Dash 4's `--Dash-*` variables
+  for the dropdowns). UI text is pt-BR. The package must not import Streamlit (tested).
+
 ## Testing conventions
 
 Tests are pure unit tests over DataFrame transforms (parser, analytics, `database._shape_silver_frame`
 + dedup key), `config.py` helpers (currency formatting, category mappings, `normalize_merchant_id`),
 `filters.apply_filters` (`test_filters.py`), `ai_categorizer` matching / Gemini-response reshaping with
 `gemini_category` stubbed (`test_categorizer.py`), `ui/insights` selection logic (`test_insights.py`), an
-import smoke that loads `main.py` + all 8 tab modules with the DB entrypoints monkeypatched to raise
+import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules with the DB entrypoints monkeypatched to raise
 (`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
 `streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
-`silver_history_df` fixture — no database or Gemini API calls are hit. Shared fixtures
+`silver_history_df` fixture — no database or Gemini API calls are hit. The Dash app is covered by
+`test_dash_data.py` (view model + figure colors) and `test_dash_app.py` (layout ids + `update_dashboard`). Shared fixtures
 (`sample_raw_csv_content`, `sample_csv_file`, `sample_expenses_df`, `silver_history_df`) live in
 `tests/conftest.py`; extend these rather than duplicating sample data per
 test file. The Silver enrichment lives in the pure `database._shape_silver_frame(df)` helper (called by

@@ -60,3 +60,25 @@ def test_all_render_funcs_exposed(no_db):
     tabs_pkg = importlib.import_module("src.expenses.ui.tabs")
     for fn in RENDER_FUNCS:
         assert callable(getattr(tabs_pkg, fn)), fn
+
+
+def test_dash_entrypoint_imports_without_running(no_db):
+    dash_app = importlib.import_module("dash_app")
+    assert callable(dash_app.main)
+    package = importlib.import_module("src.expenses.dash_app")
+    assert callable(package.create_app)
+
+
+def test_dash_package_does_not_import_streamlit():
+    import ast
+    from pathlib import Path
+
+    for path in Path("src/expenses/dash_app").glob("*.py"):
+        tree = ast.parse(path.read_text())
+        imported = {
+            (node.module if isinstance(node, ast.ImportFrom) else alias.name).split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import | ast.ImportFrom)
+            for alias in node.names
+        }
+        assert "streamlit" not in imported, path
