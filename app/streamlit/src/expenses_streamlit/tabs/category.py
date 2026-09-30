@@ -1,10 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from src.expenses.analytics import get_category_momentum
-from src.expenses.config import CATEGORY_CONFIG, DAY_OF_WEEK_LABELS_PT, format_currency_br
-from src.expenses.ui.charts import build_ranked_bar_chart
-from src.expenses.ui.figures import build_category_monthly_figure, build_day_of_week_figure
+from expenses.analytics import get_category_momentum
+from expenses.config import CATEGORY_CONFIG, DAY_OF_WEEK_LABELS_PT, format_currency_br
+from expenses_streamlit.charts import build_ranked_bar_chart
+from expenses_streamlit.figures import build_category_monthly_figure
 
 _DOW_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")
@@ -49,12 +49,11 @@ def render_category_tab(df_filtered: pd.DataFrame):
         st.info("No categories available in the filtered dataset.")
         return
 
-    st.caption("Drill into one category: size, trend, merchants and timing.")
     select_col, _ = st.columns([1, 2])
     selected = select_col.selectbox(
         "Category",
         options=options,
-        format_func=lambda c: f"{CATEGORY_CONFIG[c]['icon']} {CATEGORY_CONFIG[c]['label']}",
+        format_func=lambda c: CATEGORY_CONFIG[c]["label"],
     )
     meta = CATEGORY_CONFIG[selected]
 
@@ -113,13 +112,7 @@ def render_category_tab(df_filtered: pd.DataFrame):
                 build_ranked_bar_chart(merchants, "id", "cost", height=350), width="stretch"
             )
 
-    with st.container(border=True):
-        st.markdown("##### Spending by day of week")
-        fig = build_day_of_week_figure(df_cat_exp, height=320, headroom=1.25)
-        if fig is not None:
-            st.plotly_chart(fig, width="stretch")
-
-    with st.expander("Day-of-week breakdown"):
+    with st.expander("Spending by day of week"):
         st.dataframe(
             _day_of_week_table(df_cat_exp, cat_total),
             column_config={

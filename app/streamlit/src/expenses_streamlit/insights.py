@@ -8,12 +8,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from src.expenses.analytics import (
+from expenses.analytics import (
     get_month_pace_projection,
     get_next_month_commitment_metrics,
     get_spending_anomalies,
 )
-from src.expenses.config import (
+from expenses.config import (
     ANOMALY_MIN_CATEGORY_TX,
     ANOMALY_Z_THRESHOLD,
     INSTALLMENT_BURDEN_WARNING_PCT,
@@ -24,13 +24,6 @@ from src.expenses.config import (
 
 # Severities that ask the user to act, most urgent first.
 ATTENTION_SEVERITIES = ("critical", "warning")
-
-HEALTH_FACTOR_LABELS = {
-    "installment_burden": "installment burden",
-    "anomalies": "unusual transactions",
-    "budget_proximity": "upcoming budget proximity",
-    "spend_volatility": "month-over-month volatility",
-}
 
 
 @dataclass(frozen=True)
@@ -153,36 +146,3 @@ def attention_insights(
     flagged = [i for i in candidates if i is not None and i.severity in ATTENTION_SEVERITIES]
     flagged.sort(key=lambda i: ATTENTION_SEVERITIES.index(i.severity))
     return flagged[:limit]
-
-
-def executive_summary_insight(df_exp: pd.DataFrame) -> Insight:
-    """Executive Spending Summary for the Reports tab (``df_exp`` already excludes payments)."""
-    total = df_exp["cost"].sum()
-    monthly = df_exp.groupby("year_month")["cost"].sum()
-    peak_month = monthly.idxmax() if not df_exp.empty else "N/A"
-    peak_value = monthly.max() if not df_exp.empty else 0
-
-    ranking = df_exp.groupby("category_label")["cost"].sum().sort_values(ascending=False)
-    top1 = ranking.index[0] if len(ranking) > 0 else "N/A"
-    top1_val = ranking.iloc[0] if len(ranking) > 0 else 0
-    top2 = ranking.index[1] if len(ranking) > 1 else "N/A"
-    top2_val = ranking.iloc[1] if len(ranking) > 1 else 0
-
-    nf = df_exp[df_exp["category"] == "not_found"]
-    nf_val = nf["cost"].sum()
-    nf_pct = (nf_val / total * 100) if total > 0 else 0.0
-    severity = "warning" if nf_pct > UNCATEGORIZED_WARNING_PCT else "info" if nf_pct > 0 else "good"
-
-    def pct(v):
-        return v / total * 100 if total else 0
-
-    return Insight(
-        "📌",
-        "Executive summary",
-        f"Net spending in the period was **{format_currency_md(total)}**, peaking in "
-        f"**{peak_month}** ({format_currency_md(peak_value)}). Largest categories: **{top1}** "
-        f"({pct(top1_val):.1f}%) and **{top2}** ({pct(top2_val):.1f}%). "
-        f"**{len(nf)}** transaction(s) totaling **{format_currency_md(nf_val)}** "
-        f"({nf_pct:.1f}%) are uncategorized.",
-        severity,
-    )

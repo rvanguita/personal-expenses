@@ -1,24 +1,23 @@
 import pandas as pd
 import streamlit as st
 
-from src.expenses.analytics import calculate_kpis, get_financial_health_score
-from src.expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
-from src.expenses.ui.figures import (
-    CHART_STYLE_LINES,
-    CHART_STYLE_STACKED,
-    build_category_distribution_figure,
-    build_monthly_evolution_figure,
-    build_top_merchants_figure,
+from expenses.analytics import (
+    calculate_kpis,
+    get_moving_average,
+    get_next_month_commitment_metrics,
 )
-from src.expenses.ui.insights import HEALTH_FACTOR_LABELS, attention_insights
-from src.expenses.ui.styles import render_attention, section
-
-_DATE_BASIS = {"Invoice date": "year_month", "Purchase date": "buy_year_month"}
-_CHART_STYLES = {"Stacked": CHART_STYLE_STACKED, "Lines": CHART_STYLE_LINES}
+from expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
+from expenses_streamlit.figures import (
+    build_category_distribution_figure,
+    build_top_merchants_figure,
+    build_trend_figure,
+)
+from expenses_streamlit.insights import attention_insights
+from expenses_streamlit.styles import render_attention
 
 
 def _render_kpis(kpis: dict, df_full: pd.DataFrame) -> None:
-    health = get_financial_health_score(df_full)
+    commitment = get_next_month_commitment_metrics(df_full, reference_limit=REFERENCE_BUDGET_LIMIT)
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric(
@@ -41,30 +40,24 @@ def _render_kpis(kpis: dict, df_full: pd.DataFrame) -> None:
         format_currency_br(kpis["latest_m_val"]),
         delta=f"{kpis['mom_delta_pct']:+.1f}% vs previous",
         delta_color="inverse",
-        help="Latest selected invoice compared with the one before it.",
+        help="Latest invoice compared with the one before it.",
         border=True,
     )
-    if health["has_data"]:
-        factor = health["top_factor"]
+    if commitment["has_data"]:
         k4.metric(
-            "Financial health",
-            f"{health['score']}/100",
-            delta=health["rating"],
+            f"Installments {commitment['next_month']}",
+            format_currency_br(commitment["next_month_cost"]),
+            delta=f"{commitment['pct_of_limit']:.0f}% of limit",
             delta_color="off",
             delta_arrow="off",
             help=(
-                "Composite of installment burden, unusual purchases, upcoming budget and "
-                f"volatility (full history). Weakest: {HEALTH_FACTOR_LABELS.get(factor, factor)}."
+                f"{commitment['num_installments']} installments already due next month, against "
+                f"the {format_currency_br(REFERENCE_BUDGET_LIMIT)} reference limit."
             ),
             border=True,
         )
     else:
-        k4.metric(
-            "Transactions",
-            f"{kpis['total_tx']:,}",
-            help=f"Average ticket {format_currency_br(kpis['avg_tx'])}.",
-            border=True,
-        )
+        k4.metric("Next month installments", format_currency_br(0.0), border=True)
 
 
 def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
@@ -76,29 +69,23 @@ def render_dashboard_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
     df_expenses = df_filtered[~df_filtered["is_payment"]].copy()
     kpis = calculate_kpis(df_filtered, df_full)
 
-    st.caption("How much you spent in the selected period and where it went.")
     _render_kpis(kpis, df_full)
-
-    section("Needs attention")
     render_attention(
         attention_insights(kpis, df_expenses, df_full, reference_limit=REFERENCE_BUDGET_LIMIT)
     )
 
     with st.container(border=True):
-        title_col, options_col = st.columns([5, 1])
-        title_col.markdown("##### Monthly spending by category")
-        with options_col.popover("Options", width="stretch"):
-            basis = st.radio("Group by", list(_DATE_BASIS), key="ov_date_basis")
-            style = st.radio("View", list(_CHART_STYLES), key="ov_chart_style")
-        fig = build_monthly_evolution_figure(
-            df_expenses, group_col=_DATE_BASIS[basis], chart_style=_CHART_STYLES[style]
-        )
+        st.markdown("##### Monthly spending")
+        st.caption("Net total per invoice with its 3-month moving average.")
+        fig = build_trend_figure(get_moving_average(df_expenses, window=3))
         if fig is not None:
             st.plotly_chart(fig, width="stretch")
+        else:
+            st.caption("Needs at least two months of data.")
 
     left, right = st.columns(2)
     with left, st.container(border=True):
-        st.markdown("##### Spending by category")
+        st.markdown("##### By category")
         fig = build_category_distribution_figure(df_expenses, height=400)
         if fig is not None:
             st.plotly_chart(fig, width="stretch")

@@ -2,16 +2,16 @@ import pandas as pd
 import sqlalchemy
 import streamlit as st
 
-from src.expenses.ai_categorizer import (
+from expenses.ai_categorizer import (
     match_merchants_with_history,
     repopulate_silver_layer,
 )
-from src.expenses.config import (
+from expenses.config import (
     CATEGORY_CONFIG,
     MYSQL_DB_SILVER,
     MYSQL_TABLE,
 )
-from src.expenses.database import (
+from expenses.database import (
     create_medallion_tables,
     get_db_engine,
     load_bronze_data,
@@ -19,12 +19,12 @@ from src.expenses.database import (
     merge_editor_changes,
     save_dataframe_replace,
 )
-from src.expenses.runtime import clear_caches
+from expenses.runtime import clear_caches
 
 
 def render_categorize_tab(engine=None):
     """Renders the dedicated Categorization, Batch Gemini AI (25 IDs), and Silver Repopulation tab."""
-    st.markdown("### 🏷️ Smart AI Categorization & Silver Layer Enrichment")
+    st.markdown("### Smart AI Categorization & Silver Layer Enrichment")
     st.caption(
         "Evaluates records in the **Bronze** layer, automatically matches known merchant categories from history/dictionary, "
         "and sends unknown merchants in **batches of 25 unique IDs** to **Gemini AI**, saving progressively to the **Silver** database."
@@ -37,7 +37,7 @@ def render_categorize_tab(engine=None):
     df_bronze = load_bronze_data()
     if df_bronze.empty:
         st.info(
-            "No records found in the Bronze layer. Please import an invoice in the '📥 Ingest' tab first."
+            "No records found in the Bronze layer. Please import an invoice in the Data → Ingest tab first."
         )
         return
 
@@ -95,26 +95,26 @@ def render_categorize_tab(engine=None):
     col_status, col_action = st.columns([1, 1], gap="large")
 
     with col_status:
-        st.markdown("#### 📊 Silver Layer Status & Matching Metrics")
+        st.markdown("#### Silver Layer Status & Matching Metrics")
         m1, m2, m3 = st.columns(3)
         m1.metric("Total Bronze", f"{len(df_bronze):,}")
         m2.metric("Silver Published", f"{len(df_silver_existing):,}")
         m3.metric("Pending Sync", f"{len(df_pending_bronze):,}")
 
-        st.markdown("##### 🔍 Merchant Match Breakdown:")
+        st.markdown("##### Merchant Match Breakdown:")
         st.success(
-            f"🎯 **{len(df_matched)} merchant(s) recognized** (auto-inheriting categories from history & dictionary)."
+            f"**{len(df_matched)} merchant(s) recognized** (auto-inheriting categories from history & dictionary)."
         )
         if len(df_unmatched) > 0:
             num_batches_calc = (len(df_unmatched) + 24) // 25
             st.warning(
-                f"🤖 **{len(df_unmatched)} unknown merchant(s)** (will be processed in **{num_batches_calc} batch(es)** of 25 IDs)."
+                f"**{len(df_unmatched)} unknown merchant(s)** (will be processed in **{num_batches_calc} batch(es)** of 25 IDs)."
             )
         else:
-            st.info("✨ **0 pending AI merchants!** All records are mapped and categorized.")
+            st.info("**0 pending AI merchants!** All records are mapped and categorized.")
 
     with col_action:
-        st.markdown("#### ⚡ Batch Pipeline Trigger")
+        st.markdown("#### Batch Pipeline Trigger")
         st.caption(
             "Runs auto-matching + Gemini AI in batches of 25 IDs and progressively saves to the Silver database layer."
         )
@@ -124,7 +124,7 @@ def render_categorize_tab(engine=None):
         )
 
         btn_run = st.button(
-            f"🚀 Run Batch Categorization ({batch_size} IDs) & Sync to Silver",
+            f"Run Batch Categorization ({batch_size} IDs) & Sync to Silver",
             type="primary",
             width="stretch",
         )
@@ -143,7 +143,7 @@ def render_categorize_tab(engine=None):
                         text=f"Batch {batch_num}/{total_batches} ({current_chunk_len} IDs) categorized & saved to Silver!",
                     )
                     status_text.success(
-                        f"💾 Batch {batch_num} of {total_batches} successfully saved into Silver database."
+                        f"Batch {batch_num} of {total_batches} successfully saved into Silver database."
                     )
                 else:
                     progress_bar.progress(
@@ -163,7 +163,7 @@ def render_categorize_tab(engine=None):
             status_text.empty()
 
             st.success(
-                f"🎉 **Silver database repopulated and synced successfully!**\n\n"
+                f"**Silver database repopulated and synced successfully!**\n\n"
                 f"- **Total Enriched Transactions**: {res_repop['silver_count']:,}\n"
                 f"- **Auto-Matched Merchants**: {res_repop['matched_count']}\n"
                 f"- **Gemini AI Categorized**: {res_repop['ai_count']}\n"
@@ -175,7 +175,7 @@ def render_categorize_tab(engine=None):
     # -------------------------------------------------------------
     # Section: Interactive Review & Editor for Silver Layer
     # -------------------------------------------------------------
-    st.markdown("#### 🏷️ Silver Layer Data Viewer & Category Editor")
+    st.markdown("#### Silver Layer Data Viewer & Category Editor")
     st.caption(
         "Inspect enriched transactions published in Silver, review motivation, and edit categories directly."
     )
@@ -184,7 +184,7 @@ def render_categorize_tab(engine=None):
     if not df_silver_current.empty:
         col_f1, col_f2 = st.columns([2, 1])
         with col_f1:
-            search_query = st.text_input("🔍 Search merchant in Silver:", value="")
+            search_query = st.text_input("Search merchant in Silver:", value="")
         with col_f2:
             cat_filter = st.selectbox(
                 "Filter by category:", options=["All"] + list(CATEGORY_CONFIG.keys())
@@ -248,7 +248,7 @@ def render_categorize_tab(engine=None):
             key="editor_silver_live",
         )
 
-        if st.button("💾 Save Manual Adjustments to Silver Layer", type="secondary"):
+        if st.button("Save Manual Adjustments to Silver Layer", type="secondary"):
             with st.spinner("Persisting edits to Silver database..."):
                 # Merge into the full table: the editor may show a filtered subset of rows and
                 # columns, and the save replaces the whole Silver table.
