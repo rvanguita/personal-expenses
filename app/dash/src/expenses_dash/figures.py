@@ -22,7 +22,7 @@ from expenses_dash.theme import (
 _HOVER_MONTH = "%{customdata}<br>R$ %{y:,.2f}<extra></extra>"
 
 
-def empty_figure(message: str = "Sem dados no período", height: int = 320) -> go.Figure:
+def empty_figure(message: str = "No data for this period", height: int = 320) -> go.Figure:
     fig = go.Figure()
     fig.update_layout(
         **plotly_layout(height=height),
@@ -53,7 +53,7 @@ def monthly_figure(view: DashboardView, height: int = 320) -> go.Figure:
             go.Bar(
                 x=labels,
                 y=view.monthly["cost"],
-                name="Gasto",
+                name="Spend",
                 marker_color=ACCENT,
                 customdata=labels,
                 hovertemplate=_HOVER_MONTH,
@@ -61,10 +61,10 @@ def monthly_figure(view: DashboardView, height: int = 320) -> go.Figure:
             go.Scatter(
                 x=labels,
                 y=view.monthly["moving_avg"],
-                name="Média 3M",
+                name="3-month average",
                 mode="lines",
                 line={"color": AVERAGE, "width": 2.5, "dash": "dash"},
-                hovertemplate="Média 3M<br>R$ %{y:,.2f}<extra></extra>",
+                hovertemplate="3-month average<br>R$ %{y:,.2f}<extra></extra>",
             ),
         ]
     )
@@ -115,7 +115,7 @@ def merchants_figure(view: DashboardView) -> go.Figure:
 def commitments_figure(view: DashboardView, height: int = 360) -> go.Figure:
     """Installments already contracted, per future invoice month."""
     if view.commitments.empty:
-        return empty_figure("Nenhuma parcela futura", height=height)
+        return empty_figure("No future installments", height=height)
     labels = [month_label(m) for m in view.commitments["future_month"]]
     fig = go.Figure(
         go.Bar(
@@ -134,7 +134,7 @@ def comparison_figure(pop: dict, top_n: int = 10, height: int = 380) -> go.Figur
     """Top categories: selected period vs the same number of months right before it."""
     by_cat = pop.get("by_category", pd.DataFrame())
     if not pop.get("has_data") or by_cat.empty:
-        return empty_figure("Sem período anterior para comparar", height=height)
+        return empty_figure("No previous period to compare", height=height)
     data = by_cat.head(top_n).iloc[::-1]
     prev, cur = pop["previous_months"], pop["current_months"]
     fig = go.Figure(
@@ -143,17 +143,17 @@ def comparison_figure(pop: dict, top_n: int = 10, height: int = 380) -> go.Figur
                 y=data["category_label"],
                 x=data["previous"],
                 orientation="h",
-                name=f"Anterior ({month_label(prev[0])}–{month_label(prev[-1])})",
+                name=f"Previous ({month_label(prev[0])}–{month_label(prev[-1])})",
                 marker_color=PREVIOUS,
-                hovertemplate="%{y}<br>R$ %{x:,.2f}<extra>Anterior</extra>",
+                hovertemplate="%{y}<br>R$ %{x:,.2f}<extra>Previous</extra>",
             ),
             go.Bar(
                 y=data["category_label"],
                 x=data["current"],
                 orientation="h",
-                name=f"Atual ({month_label(cur[0])}–{month_label(cur[-1])})",
+                name=f"Current ({month_label(cur[0])}–{month_label(cur[-1])})",
                 marker_color=ACCENT,
-                hovertemplate="%{y}<br>R$ %{x:,.2f}<extra>Atual</extra>",
+                hovertemplate="%{y}<br>R$ %{x:,.2f}<extra>Current</extra>",
             ),
         ]
     )
@@ -169,7 +169,7 @@ def comparison_figure(pop: dict, top_n: int = 10, height: int = 380) -> go.Figur
 def yoy_figure(yoy: pd.DataFrame, height: int = 320) -> go.Figure:
     """Same calendar months, previous year vs current year."""
     if yoy.empty:
-        return empty_figure("Menos de dois anos de histórico", height=height)
+        return empty_figure("Less than two years of history", height=height)
     prev_year, cur_year = int(yoy["previous_year"].iloc[0]), int(yoy["current_year"].iloc[0])
     fig = go.Figure(
         [
@@ -217,7 +217,7 @@ def category_history_figure(history: pd.DataFrame, key: str, height: int = 320) 
 def limit_figure(projection: pd.DataFrame, limit: float, height: int = 340) -> go.Figure:
     """Installments already due per future month against the reference limit (dashed line)."""
     if projection.empty:
-        return empty_figure("Nenhuma parcela futura", height=height)
+        return empty_figure("No future installments", height=height)
     labels = [month_label(m) for m in projection["future_month"]]
     colors = [LIMIT if v > limit else COMMITMENT for v in projection["cost"]]
     fig = go.Figure(
@@ -232,7 +232,7 @@ def limit_figure(projection: pd.DataFrame, limit: float, height: int = 340) -> g
     fig.add_hline(
         y=limit,
         line={"color": LIMIT, "width": 1.5, "dash": "dash"},
-        annotation_text=f"Limite {brl(limit, 0)}",
+        annotation_text=f"Limit {brl(limit, 0)}",
         annotation_position="top right",
         annotation_font={"color": LIMIT, "size": 11},
     )
@@ -254,7 +254,7 @@ def split_figure(split: pd.DataFrame, height: int = 320) -> go.Figure:
                 marker_color=color,
                 hovertemplate=f"{kind}<br>R$ %{{y:,.2f}}<extra></extra>",
             )
-            for kind, color in (("À vista", ACCENT), ("Parcelado", COMMITMENT))
+            for kind, color in (("Single payment", ACCENT), ("Installments", COMMITMENT))
         ]
     )
     legend = {**LEGEND_TOP, "traceorder": "normal"}
@@ -273,17 +273,17 @@ def bands_figure(bands: pd.DataFrame, height: int = 320) -> go.Figure:
             x=list(bands["band"]),
             y=bands["total"],
             marker_color=ACCENT,
-            text=[f"{int(n)} compras" for n in bands["tx"]],
+            text=[f"{int(n)} purchases" for n in bands["tx"]],
             textposition="outside",
             cliponaxis=False,
             customdata=bands["share"],
-            hovertemplate="Compras de R$ %{x}<br>R$ %{y:,.2f} · %{customdata:.1f}% do gasto"
+            hovertemplate="Purchases of R$ %{x}<br>R$ %{y:,.2f} · %{customdata:.1f}% of spend"
             "<br>%{text}<extra></extra>",
         )
     )
     layout = plotly_layout(height=height)
     layout["margin"] = {"l": 8, "r": 8, "t": 24, "b": 8}
-    layout["xaxis"] = {**layout["xaxis"], "tickangle": 0, "title": "valor da compra (R$)"}
+    layout["xaxis"] = {**layout["xaxis"], "tickangle": 0, "title": "purchase amount (R$)"}
     fig.update_layout(**layout)
     return fig
 
@@ -300,7 +300,7 @@ def weekday_figure(weekday: pd.DataFrame, height: int = 320) -> go.Figure:
             y=weekday["total"],
             marker_color=colors,
             customdata=weekday[["tx", "avg_ticket"]].to_numpy(),
-            hovertemplate="%{x}<br>R$ %{y:,.2f}<br>%{customdata[0]} compras · ticket médio "
+            hovertemplate="%{x}<br>R$ %{y:,.2f}<br>%{customdata[0]} purchases · average ticket "
             "R$ %{customdata[1]:,.2f}<extra></extra>",
         )
     )

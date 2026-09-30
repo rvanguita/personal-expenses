@@ -50,7 +50,7 @@ def test_update_dashboard_with_data(silver_history_df):
     subtitle, kpis, table, *figures = update_dashboard(
         silver_history_df, "Last 6 months", None, None
     )
-    assert "Últimos 6 meses" in subtitle and "última fatura" in subtitle
+    assert "Last 6 months" in subtitle and "latest invoice" in subtitle
     assert len(kpis) == 4
     assert table != []
     assert len(figures) == len(FIGURE_IDS)

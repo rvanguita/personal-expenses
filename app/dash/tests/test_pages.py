@@ -42,15 +42,13 @@ def test_pages_without_data(texts, page, view, _n):
 
 
 def test_reports_page_without_installments(texts):
-    assert "Nenhuma compra parcelada em aberto." in texts(
-        reports_page(reports_view(pd.DataFrame()))
-    )
+    assert "No open installment purchases." in texts(reports_page(reports_view(pd.DataFrame())))
 
 
 def test_category_page(silver_history_df, graphs, texts):
     body = category_page(category_view(silver_history_df, "All History", selected="food"))
     assert len(graphs(body)) == 2
-    assert "Alimentação" in texts(body)
+    assert "Food & Dining" in texts(body)
     assert NO_ROWS in texts(category_page(category_view(pd.DataFrame())))
 
 
@@ -62,6 +60,6 @@ def test_kpi_tones_follow_meaning(silver_history_df):
 
 
 def test_label_to_key_and_scroll():
-    assert _label_to_key("Alimentação") == "food"
+    assert _label_to_key("Food & Dining") == "food"
     assert _label_to_key("desconhecida") == "not_found"
     assert html_scroll("x").className == "pe-scroll"

@@ -1,4 +1,4 @@
-"""View models for the secondary tabs (Tendências, Atenção, Categorias, Relatórios).
+"""View models for the secondary tabs (Trends, Habits, Watchlist, Categories, Reports).
 
 Each builder takes the same controls as `data.build_view`, slices with `data.slice_data` and only
 calls `analytics.py`. Results are plain dicts of numbers and DataFrames; `layout.py` renders them.
@@ -26,13 +26,13 @@ from expenses.config import (
     RECURRING_MIN_MONTHS,
     REFERENCE_BUDGET_LIMIT,
 )
-from expenses_dash.data import _MONTHS_PT, slice_data
-from expenses_dash.fmt import CATEGORY_LABELS_PT, WEEKDAYS_PT
+from expenses_dash.data import _MONTHS, slice_data
+from expenses_dash.fmt import CATEGORY_LABELS, WEEKDAYS
 
-TREND_LABELS = {"up": "Em alta", "down": "Em queda", "stable": "Estável"}
-MOMENTUM_LABELS = {"rising": "▲ Subindo", "falling": "▼ Caindo", "stable": "Estável"}
-STATUS_LABELS = {"Increased": "▲ Aumentou", "Decreased": "▼ Diminuiu", "Stable": "Estável"}
-FREQUENCY_LABELS = {"increased": "▲ Mais frequente", "decreased": "▼ Menos frequente"}
+TREND_LABELS = {"up": "Rising", "down": "Falling", "stable": "Stable"}
+MOMENTUM_LABELS = {"rising": "▲ Rising", "falling": "▼ Falling", "stable": "Stable"}
+STATUS_LABELS = {"Increased": "▲ Increased", "Decreased": "▼ Decreased", "Stable": "Stable"}
+FREQUENCY_LABELS = {"increased": "▲ More often", "decreased": "▼ Less often"}
 
 
 def trends_view(df_full: pd.DataFrame, period=None, holders=None, categories=None) -> dict:
@@ -42,7 +42,7 @@ def trends_view(df_full: pd.DataFrame, period=None, holders=None, categories=Non
     trend = get_spending_trend(_exclude_payments(sliced.df) if not sliced.df.empty else sliced.df)
     yoy = get_year_over_year_comparison(df_scope)
     if not yoy.empty:
-        yoy = yoy.assign(month_name=[_MONTHS_PT[int(m) - 1] for m in yoy["month_num"]])
+        yoy = yoy.assign(month_name=[_MONTHS[int(m) - 1] for m in yoy["month_num"]])
     return {
         "is_empty": sliced.df.empty,
         "heatmap": category_month_matrix(sliced.df, sliced.months),
@@ -111,7 +111,7 @@ def category_options(df_full: pd.DataFrame, period=None, holders=None, categorie
         return []
     positive = _exclude_payments(df)
     totals = positive[positive["cost"] > 0].groupby("category")["cost"].sum()
-    return [(c, CATEGORY_LABELS_PT.get(c, c)) for c in totals.sort_values(ascending=False).index]
+    return [(c, CATEGORY_LABELS.get(c, c)) for c in totals.sort_values(ascending=False).index]
 
 
 def category_view(
@@ -151,7 +151,7 @@ def category_view(
         "is_empty": False,
         "options": options,
         "selected": selected,
-        "label": CATEGORY_LABELS_PT.get(selected, selected),
+        "label": CATEGORY_LABELS.get(selected, selected),
         "total": total,
         "share_pct": total / float(positive["cost"].sum()) * 100 if total else 0.0,
         "count": count,
@@ -215,23 +215,23 @@ def export_frame(df_full: pd.DataFrame, period=None, holders=None, categories=No
         return pd.DataFrame()
     return pd.DataFrame(
         {
-            "fatura": df["year_month"],
-            "data_fatura": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
-            "data_compra": pd.to_datetime(df["date_buy"]).dt.strftime("%Y-%m-%d"),
-            "estabelecimento": df["id"],
-            "titular": df["source_debt"],
-            "categoria": df["category_label"],
-            "valor": df["cost"].round(2),
-            "parcela": df["installment"],
-            "total_parcelas": df["total_installments"],
+            "invoice": df["year_month"],
+            "invoice_date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
+            "purchase_date": pd.to_datetime(df["date_buy"]).dt.strftime("%Y-%m-%d"),
+            "merchant": df["id"],
+            "cardholder": df["source_debt"],
+            "category": df["category_label"],
+            "amount": df["cost"].round(2),
+            "installment": df["installment"],
+            "total_installments": df["total_installments"],
         }
-    ).sort_values(["data_compra", "estabelecimento"], ascending=[False, True])
+    ).sort_values(["purchase_date", "merchant"], ascending=[False, True])
 
 
 # --------------------------------------------------------------------------- new analyses
 
 TICKET_BANDS = [0, 50, 100, 250, 500, 1000, float("inf")]
-TICKET_LABELS = ["até 50", "50–100", "100–250", "250–500", "500–1 mil", "1 mil+"]
+TICKET_LABELS = ["up to 50", "50–100", "100–250", "250–500", "500–1k", "1k+"]
 _ENGLISH_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
@@ -252,7 +252,7 @@ def category_month_matrix(df: pd.DataFrame, months: list[str], top_n: int = 12) 
         index="category", columns="year_month", values="cost", aggfunc="sum", fill_value=0.0
     ).reindex(columns=months, fill_value=0.0)
     matrix = matrix.loc[matrix.sum(axis=1).sort_values(ascending=False).index].head(top_n)
-    matrix.index = [CATEGORY_LABELS_PT.get(c, c) for c in matrix.index]
+    matrix.index = [CATEGORY_LABELS.get(c, c) for c in matrix.index]
     return matrix
 
 
@@ -296,14 +296,14 @@ def habits_view(df_full: pd.DataFrame, period=None, holders=None, categories=Non
 
     split = (
         purchases.assign(
-            kind=purchases["is_installment"].map({True: "Parcelado", False: "À vista"})
+            kind=purchases["is_installment"].map({True: "Installments", False: "Single payment"})
         )
         .pivot_table(
             index="year_month", columns="kind", values="cost", aggfunc="sum", fill_value=0.0
         )
-        .reindex(index=sliced.months, columns=["À vista", "Parcelado"], fill_value=0.0)
+        .reindex(index=sliced.months, columns=["Single payment", "Installments"], fill_value=0.0)
     )
-    installment_total = float(split["Parcelado"].sum())
+    installment_total = float(split["Installments"].sum())
 
     bands = (
         purchases.assign(
@@ -325,11 +325,11 @@ def habits_view(df_full: pd.DataFrame, period=None, holders=None, categories=Non
         .reset_index()
         .rename(columns={"count": "tx", "sum": "total"})
     )
-    weekday["day"] = WEEKDAYS_PT
+    weekday["day"] = WEEKDAYS
     weekday["avg_ticket"] = (weekday["total"] / weekday["tx"].where(weekday["tx"] > 0)).fillna(0.0)
 
     holders_monthly = (
-        purchases.assign(holder=purchases["source_debt"].replace("", "Sem titular"))
+        purchases.assign(holder=purchases["source_debt"].replace("", "No cardholder"))
         .pivot_table(
             index="year_month", columns="holder", values="cost", aggfunc="sum", fill_value=0.0
         )

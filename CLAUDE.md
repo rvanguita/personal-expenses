@@ -224,25 +224,25 @@ The theme is fixed dark in `app/streamlit/.streamlit/config.toml` (same palette 
 
 `expenses_dash` (`app/dash/`) is a read-only app (writes stay in the Streamlit **Data** tab). Header +
 three global filters (period, holders, categories) sit above six `dcc.Tabs`, covering the
-Streamlit analyses plus a few Dash-only ones, all in pt-BR:
+Streamlit analyses plus a few Dash-only ones, all in English:
 
 | Tab | View model | Content |
 |---|---|---|
-| Visão geral | `data.build_view` | 4 KPIs, monthly total + 3M avg, category / top-merchant bars, future installments, largest purchases |
-| Tendências | `analyses.trends_view` | trend / 3M avg / projection / period-vs-previous KPIs, category comparison, category × month heatmap, same months last year, momentum table |
-| Hábitos | `analyses.habits_view` | purchases/month, ticket (mean + median), installment share, merchant concentration (top 10 + Pareto 80%); single vs installment per month, ticket-size bands, weekday, per cardholder |
-| Atenção | `analyses.watchlist_view` | fixed cost, recurring charges, outliers, uncategorized, merchants new in the period, frequency shifts (tables only) |
-| Categorias | `analyses.category_view` | own category picker (options follow the filters), KPIs, monthly history, merchants, largest purchases |
-| Relatórios | `analyses.reports_view` | installments vs `REFERENCE_BUDGET_LIMIT`, upcoming installments, invoice totals, CSV download (`export_frame`) |
+| Overview | `data.build_view` | 4 KPIs, monthly total + 3M avg, category / top-merchant bars, future installments, largest purchases |
+| Trends | `analyses.trends_view` | trend / 3M avg / projection / period-vs-previous KPIs, category comparison, category × month heatmap, same months last year, momentum table |
+| Habits | `analyses.habits_view` | purchases/month, ticket (mean + median), installment share, merchant concentration (top 10 + Pareto 80%); single vs installment per month, ticket-size bands, weekday, per cardholder |
+| Watchlist | `analyses.watchlist_view` | fixed cost, recurring charges, outliers, uncategorized, merchants new in the period, frequency shifts (tables only) |
+| Categories | `analyses.category_view` | own category picker (options follow the filters), KPIs, monthly history, merchants, largest purchases |
+| Reports | `analyses.reports_view` | installments vs `REFERENCE_BUDGET_LIMIT`, upcoming installments, invoice totals, CSV download (`export_frame`) |
 
 - Every view model starts from `data.slice_data(df_full, period, holders, categories)`:
   `df` = selected period/holders/categories (payments removed), `df_scope` = same holders/categories
   over the full history (installment projections, recurring charges and comparisons need it).
   **Add numbers to the view models, never in callbacks or pages;** only call `analytics.py`.
-- `fmt.py` — pt-BR presentation: `brl()` (`R$ 1.234,56`), `pct()`, `integer()`, Portuguese category
-  names (`CATEGORY_LABELS_PT`, applied to `category_label` inside `slice_data`, so every tab gets
-  them) and weekday names. **Use these in the Dash app, not `config.format_currency_br`** (which
-  keeps the Streamlit app's `R$ 1,234.56`). Plotly uses `separators=",."` for the same format.
+- `fmt.py` — presentation helpers: `brl()` (`R$ 1,234.56`, same format as the Streamlit app, with
+  a `decimals` option), `pct()`, `integer()`, `category_label()` and `WEEKDAYS`. Category names
+  come from `config.CATEGORY_LABELS` and are applied to `category_label` inside `slice_data`
+  (`_category_labels`), so every tab gets them. Plotly uses `separators=".,"`. The UI is English.
 - KPI dicts are `{label, value, note, help, tone}`; `tone` in `bad`/`good`/`neutral` colours the
   note (`data.spend_delta` makes rising spend `bad`, falling `good`).
 - `figures.py` — Plotly builders; `theme.py` — dark tokens, `plotly_layout()`, `LEGEND_TOP`.
