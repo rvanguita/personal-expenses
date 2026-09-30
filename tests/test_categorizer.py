@@ -6,13 +6,13 @@ from contextlib import contextmanager
 
 import pandas as pd
 
-import src.expenses.ai_categorizer as cat
-from src.expenses.ai_categorizer import (
+import expenses.ai_categorizer as cat
+from expenses.ai_categorizer import (
     gemini_categorize_unmatched,
     match_merchants_with_history,
 )
 
-_CATEGORY_JSON = "data/categories.default.json"
+_CATEGORY_JSON = "docs/data/categories.default.json"
 
 
 def test_match_merchants_with_history_empty_and_missing_id():

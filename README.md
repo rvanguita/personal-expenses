@@ -1,110 +1,129 @@
 # Personal Expenses
 
-Uma aplicação de análise financeira para transformar faturas de cartão de crédito em dados organizados, categorias revisáveis e painéis interativos.
+A personal finance analytics project that turns credit card invoices into organized data, reviewable categories and interactive dashboards.
 
-O projeto combina uma interface Streamlit com um pipeline em camadas Raw, Bronze e Silver no MySQL. Arquivos CSV são preservados em formato bruto, padronizados para análise e enriquecidos por regras locais, histórico de classificações e Google Gemini.
+It ships two frontends — a **Streamlit** app (analysis plus data operations) and a read-only **Dash** dashboard — on top of a Raw → Bronze → Silver pipeline in MySQL. CSV files are preserved as received, standardized for analysis and enriched by local rules, classification history and Google Gemini.
 
-## O que o projeto entrega
+## What it provides
 
-- Ingestão em lote de faturas CSV com suporte a cabeçalhos em português e inglês.
-- Arquitetura medalhão em três bancos MySQL independentes.
-- Deduplicação entre cargas e alinhamento automático de colunas.
-- Categorização por histórico, dicionário local e fallback opcional para o Gemini.
-- Dashboard com indicadores, tendências, categorias, recorrências e projeções de parcelas.
-- Edição e manutenção das camadas por uma interface Streamlit.
-- Testes unitários sem dependência de MySQL ou Gemini ativos.
+- Batch ingestion of CSV invoices, with Portuguese and English header detection.
+- Medallion architecture across three independent MySQL databases.
+- Deduplication across loads and automatic column alignment.
+- Categorization by history, a local dictionary and an optional Gemini fallback.
+- Dashboards with KPIs, trends, habits, categories, recurring charges and installment projections.
+- Editing and maintenance of every layer from the Streamlit app.
+- Each app with its own dependencies and Docker image (uv workspace).
+- Unit tests for every function, with no live MySQL or Gemini required.
 
-## Arquitetura e fluxo do projeto
+## Architecture and flow
 
 ```mermaid
 flowchart LR
-    csv[Arquivos CSV] --> parser[Parser e validação]
+    csv[CSV invoices] --> parser[Parser and validation]
     parser --> raw[(MySQL Raw)]
     parser --> bronze[(MySQL Bronze)]
 
-    bronze --> history[Histórico Silver]
-    bronze --> dictionary[Dicionário de categorias]
-    bronze --> gemini[Google Gemini opcional]
+    bronze --> history[Silver history]
+    bronze --> dictionary[Category dictionary]
+    bronze --> gemini[Optional Google Gemini]
 
     history --> silver[(MySQL Silver)]
     dictionary --> silver
     gemini --> silver
 
     silver --> analytics[Analytics]
-    analytics --> app[Streamlit]
+    analytics --> streamlit[app/streamlit]
+    analytics --> dash[app/dash]
 ```
 
-### Fluxo em cinco etapas
+### Five steps
 
-1. A aba de ingestão recebe uma ou mais faturas CSV.
-2. O parser preserva as colunas originais na Raw e cria uma representação tipada na Bronze.
-3. Comerciantes conhecidos são classificados pelo histórico da Silver ou pelo dicionário local.
-4. Comerciantes ainda desconhecidos podem ser enviados ao Gemini em lotes e revisados antes da persistência.
-5. A Silver alimenta filtros, métricas, gráficos, relatórios e projeções do Streamlit.
+1. The Streamlit **Data → Ingest** tab receives one or more CSV invoices.
+2. The parser keeps the original columns in Raw and writes a typed representation to Bronze.
+3. Known merchants are classified from the Silver history or the local dictionary.
+4. Still-unknown merchants can be sent to Gemini in batches and reviewed before they are stored.
+5. Silver feeds the filters, metrics, charts, reports and projections of both apps.
 
-## Camadas de dados
+## Data layers
 
-| Camada | Responsabilidade | Exemplos de tratamento |
+| Layer | Responsibility | Examples |
 | --- | --- | --- |
-| Raw | Preservar a entrada recebida | Strings originais, cabeçalhos e arquivo de origem |
-| Bronze | Padronizar e tipar | Datas, valores monetários, parcelas e identificadores |
-| Silver | Enriquecer para consumo | Categorias, motivação, origem da classificação e campos analíticos |
+| Raw | Preserve the input as received | Original strings, headers and source file |
+| Bronze | Standardize and type | Dates, currency values, installments and identifiers |
+| Silver | Enrich for consumption | Category, motivation, classification source and analytic fields |
 
-As camadas usam o mesmo nome de tabela, configurado por `MYSQL_TABLE`, em bancos separados. A aplicação cria tabelas ausentes e adiciona novas colunas esperadas sem exigir uma migração manual.
+All layers use the same table name (`MYSQL_TABLE`) in separate databases. Missing tables are created and new expected columns are added automatically, with no manual migrations.
 
-## Produto analítico
+## Analytics
 
-A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e três abas de operação de dados. Todas compartilham os filtros globais de período, faturas, portador e categoria (tipo de transação, forma de pagamento e busca ficam em "More filters").
+### Streamlit (`app/streamlit`)
 
-| Aba | Pergunta respondida |
+Five analysis tabs, each answering one question, plus a **Data** tab for data operations. All tabs share the period, cardholder and category filters (transaction type, payment method and merchant search live under "More filters"; hiding amounts and reloading data live under "Display").
+
+| Tab | Question |
 | --- | --- |
-| Overview | Quanto foi gasto no período e onde? O que precisa de atenção agora? |
-| Trends | Os gastos estão subindo ou caindo, contra o período anterior e o ano passado? |
-| Watchlist | Quais cobranças recorrentes, compras fora do padrão e gastos sem categoria merecem revisão? |
-| Categories | O que compõe uma categoria: histórico, comerciantes e dia da semana? |
-| Reports | Quanto já está comprometido em parcelas e onde estão os dados completos para exportar? |
-| Ingest | Quais arquivos e registros serão carregados em Raw e Bronze? |
-| Categorize | Quais comerciantes foram reconhecidos e quais precisam de classificação? |
-| Manage Data | Como inspecionar, editar e deduplicar as três camadas? |
+| Overview | How much was spent, where, what is already committed to the next invoice and what needs attention? |
+| Trends | Is spending going up or down, against the previous period and last year? |
+| Watchlist | Which recurring charges, unusual purchases and uncategorized spending deserve a look? |
+| Categories | What is inside a category: history, merchants and day of week? |
+| Reports | How much is committed in installments, and where is the full data to export? |
+| Data → Ingest | Which files and rows will be loaded into Raw and Bronze? |
+| Data → Categorize | Which merchants were recognized and which still need a category? |
+| Data → Manage | How to inspect, edit and deduplicate the three layers? |
 
-### Regras analíticas importantes
+### Dash (`app/dash`)
 
-- Pagamentos de fatura são separados de compras e não entram no gasto líquido.
-- Reembolsos negativos de comerciantes reduzem o total líquido.
-- Parcelas futuras são projetadas a partir da parcela atual e do total contratado.
-- Valores desconhecidos de categoria são normalizados para `not_found`.
-- Aliases de comerciantes são aplicados na leitura da Silver, sem alterar os dados persistidos.
-- O limite de referência dos relatórios é configurável e não representa aconselhamento financeiro.
+A read-only dashboard with a Portuguese UI (values formatted as R$ 1.234,56), dark theme and per-category colors, using the same period, cardholder and category filters:
 
-## Tecnologias
-
-| Responsabilidade | Tecnologias |
+| Tab | What it shows |
 | --- | --- |
-| Interface e visualização | Streamlit, Plotly |
-| Processamento | Python, Pandas, NumPy |
-| Persistência | MySQL, SQLAlchemy, PyMySQL |
-| Categorização assistida | Google Gemini |
-| Ambiente | uv, Docker, Docker Compose |
-| Qualidade | Pytest, Ruff, GitHub Actions |
+| Visão geral (Overview) | Spend in the period, monthly average, latest invoice, next-month installments, monthly evolution, categories, merchants and largest purchases |
+| Tendências (Trends) | Current vs previous period, same months last year, category × month heatmap and category momentum |
+| Hábitos (Habits) | Single payment vs installments, ticket-size bands, weekday, spend per cardholder and merchant concentration |
+| Atenção (Watchlist) | Fixed cost, recurring charges, unusual purchases, uncategorized spend, new merchants and frequency changes |
+| Categorias (Categories) | One category in detail: total, share, history, merchants and largest purchases |
+| Relatórios (Reports) | Installments vs the limit, upcoming installments, invoice totals and CSV download |
 
-## Execução local
+Ingestion, categorization and maintenance stay in the Streamlit app.
 
-### Pré-requisitos
+### Analytics rules
 
-- Python 3.13 ou superior;
+- Invoice payments are kept apart from purchases and never count as spending.
+- Negative merchant refunds reduce the net total.
+- Future installments are projected from the current installment and the contracted total.
+- Unknown category values are normalized to `not_found`.
+- Merchant aliases are applied when reading Silver, without changing stored data.
+- The reports' reference limit is configurable and is not financial advice.
+
+## Technology
+
+| Area | Tools |
+| --- | --- |
+| Interface and charts | Streamlit, Dash, Plotly |
+| Processing | Python, Pandas, NumPy |
+| Storage | MySQL, SQLAlchemy, PyMySQL |
+| Assisted categorization | Google Gemini |
+| Environment | uv (workspace), Docker, Docker Compose |
+| Quality | Pytest, pytest-cov, Ruff, GitHub Actions |
+
+## Running locally
+
+### Requirements
+
+- Python 3.13 or newer;
 - [uv](https://docs.astral.sh/uv/);
-- servidor MySQL acessível;
-- chave do Google Gemini apenas para a categorização por IA;
-- Docker com Docker Compose, caso prefira executar em container.
+- a reachable MySQL server;
+- a Google Gemini key, only for AI categorization;
+- Docker with Docker Compose, if you prefer containers.
 
-### Configuração
+### Setup
 
 ```bash
 cp .env.example .env
-uv sync --all-groups
+uv sync --all-packages --all-groups   # backend + both apps + dev tools
 ```
 
-Preencha o `.env` com as credenciais do seu ambiente:
+Fill `.env` with your environment's settings:
 
 ```env
 MYSQL_HOST="127.0.0.1"
@@ -121,79 +140,101 @@ GEMINI_API_KEY="your_gemini_api_key_here"
 GEMINI_MODEL="gemini-3.6-flash"
 
 REFERENCE_BUDGET_LIMIT="10000"
-CATEGORY_LOCAL_PATH="data/categories.local.json"
+CATEGORY_LOCAL_PATH="docs/data/categories.local.json"
 STREAMLIT_PORT="8503"
+DASH_PORT="8050"
 ```
 
-### Iniciar a aplicação
+### Start the apps
 
 ```bash
-uv run streamlit run main.py
+uv run --directory app/streamlit streamlit run main.py   # full app on http://localhost:8503
+uv run --directory app/dash python main.py               # read-only dashboard on http://localhost:8050
 ```
 
-O Streamlit estará disponível em `http://localhost:8503`.
+Each app runs from its own folder (Streamlit reads `app/streamlit/.streamlit/config.toml`); project files under `docs/` are resolved from the repository root, so the working directory does not matter for them.
 
-### Executar com Docker
+### Docker
 
 ```bash
 docker compose up --build -d
-docker compose logs -f streamlit
+docker compose logs -f streamlit dash
 ```
 
-O Compose inicia somente a aplicação. O MySQL deve estar acessível a partir da rede do container.
+The root `docker-compose.yml` starts two services, each built from its app's own Dockerfile: `streamlit` (`app/streamlit/Dockerfile`, `:8503`) and `dash` (`app/dash/Dockerfile`, `:8050`). Each image installs only its app's dependencies (the Dash image has no Streamlit and vice versa). MySQL must be reachable from the container network.
 
-## Categorias e aprendizado local
+## Categories and local learning
 
-`data/categories.default.json` contém apenas termos genéricos e seguros para distribuição pública. Classificações aprendidas durante o uso são mescladas ao seed e gravadas em `data/categories.local.json`.
+`docs/data/categories.default.json` holds only generic terms that are safe to publish. Classifications learned while using the app are merged into the seed and written to `docs/data/categories.local.json`.
 
-O arquivo local é ignorado pelo Git e pelo build Docker, mas permanece no volume `data/` quando a aplicação roda pelo Compose. Assim, o aprendizado pode persistir na máquina sem transformar nomes de comerciantes em conteúdo versionado.
+The local file is ignored by Git and by the Docker build, but it lives in the `docs/data/` volume mounted by Compose, so the learning persists on your machine without turning merchant names into versioned content. The Gemini prompt template is `docs/template/prompt.md`.
 
-## Privacidade e segurança
+## Privacy and security
 
-- Não adicione faturas, extratos, exports, dumps de banco ou arquivos `.env` ao repositório.
-- Os padrões de exclusão cobrem CSV, TSV, planilhas, bancos locais, dumps SQL e o dicionário aprendido.
-- Dados financeiros são persistidos no MySQL configurado pelo operador; o repositório não inclui dados de demonstração derivados de pessoas reais.
-- Ao habilitar a categorização por IA, identificadores de comerciantes desconhecidos são enviados à API do Google Gemini. Revise os requisitos de privacidade aplicáveis antes de usar essa função.
-- O controle “Hide amounts” reduz a exposição casual na tela, mas não substitui controles de acesso ao banco ou à aplicação.
+- Never commit invoices, statements, exports, database dumps or `.env` files.
+- The ignore rules cover CSV, TSV, spreadsheets, local databases, SQL dumps and the learned dictionary.
+- Financial data is stored in the MySQL server you configure; the repository ships no demo data derived from real people.
+- With AI categorization enabled, unknown merchant identifiers are sent to the Google Gemini API. Review the applicable privacy requirements before using it.
+- The "Hide amounts" switch reduces casual on-screen exposure but does not replace access control to the database or the apps.
 
-## Qualidade e testes
+## Quality and tests
 
 ```bash
-uv run pytest
+uv run pytest                           # backend (tests/) + app/streamlit/tests + app/dash/tests
+uv run pytest app/dash/tests            # a single app
+uv run pytest --cov=expenses --cov=expenses_streamlit --cov=expenses_dash
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-A suíte cobre parsing de CSV, transformação medalhão, deduplicação, categorização, filtros, métricas, gráficos e importação da interface. As integrações externas são simuladas nos testes.
+Each package has its own suite — `tests/` for the backend, `app/streamlit/tests/` and `app/dash/tests/` for the apps — with shared fixtures in the root `conftest.py`. `tests/test_every_function_is_tested.py` fails if any function in the project is not named in a test, and `tests/test_architecture.py` checks that the backend imports neither Streamlit nor Dash and that neither app imports the other. The database (SQLite in the write-path tests), Gemini and Streamlit (`AppTest`) are simulated; no test reaches MySQL or the API.
 
-## Estrutura do repositório
+## Repository layout
 
 ```text
 personal-expenses/
-├── data/                         # seed público de categorias; dados locais são ignorados
-├── src/expenses/
-│   ├── ui/                       # componentes, gráficos e abas Streamlit
-│   ├── ai_categorizer.py         # matching local e integração Gemini
-│   ├── analytics.py              # métricas, tendências e projeções
-│   ├── config.py                 # configuração e metadados compartilhados
-│   ├── database.py               # bancos Raw, Bronze e Silver
-│   └── parser.py                 # leitura e padronização dos CSVs
-├── template/                     # prompt de categorização
-├── tests/                        # suíte unitária e smoke tests
-├── main.py                       # entrada da aplicação
-├── Dockerfile
-├── docker-compose.yml
-└── pyproject.toml
+├── pyproject.toml                # uv workspace + backend package (expenses) + dev tools
+├── uv.lock
+├── conftest.py                   # shared test fixtures
+├── src/expenses/                 # backend shared by both apps
+│   ├── ai_categorizer.py         # local matching and Gemini integration
+│   ├── analytics.py              # metrics, trends and projections
+│   ├── config.py                 # settings, paths and category metadata
+│   ├── database.py               # Raw, Bronze and Silver databases
+│   ├── filters.py                # global filters
+│   ├── gemini.py                 # Gemini client with retry and model fallback
+│   ├── parser.py                 # CSV reading and standardization
+│   └── runtime.py                # caching and notifications without Streamlit
+├── tests/                        # backend and architecture tests
+├── app/
+│   ├── streamlit/
+│   │   ├── pyproject.toml        # app dependencies (streamlit, plotly, expenses)
+│   │   ├── Dockerfile
+│   │   ├── main.py               # entrypoint (streamlit run main.py)
+│   │   ├── .streamlit/           # theme and settings
+│   │   ├── src/expenses_streamlit/   # tabs, charts, styles, sidebar
+│   │   └── tests/
+│   └── dash/
+│       ├── pyproject.toml        # app dependencies (dash, plotly, expenses)
+│       ├── Dockerfile
+│       ├── main.py               # entrypoint (python main.py)
+│       ├── src/expenses_dash/    # data, analyses, figures, layout, callbacks, assets/
+│       └── tests/
+├── docs/
+│   ├── data/                     # public category seed; the learned dictionary is git-ignored
+│   └── template/                 # Gemini categorization prompt
+├── docker-compose.yml            # runs both apps
+└── .github/workflows/ci.yml      # lint, format and tests with coverage
 ```
 
-## Limitações e próximos passos
+## Limitations and next steps
 
-- O parser depende da presença de colunas semanticamente equivalentes a data, comerciante, portador, valor e parcela.
-- MySQL e Gemini não são provisionados pelo Docker Compose.
-- A deduplicação é implementada na aplicação e não por restrições únicas no banco.
-- A classificação por IA pode errar e deve ser revisada antes de orientar decisões.
-- Autenticação, autorização multiusuário e implantação gerenciada não fazem parte desta versão.
+- The parser needs columns that semantically match date, merchant, cardholder, amount and installment.
+- MySQL and Gemini are not provisioned by Docker Compose.
+- Deduplication is done in the application, not by unique constraints in the database.
+- AI classification can be wrong and should be reviewed before driving decisions.
+- Authentication, multi-user authorization and managed deployment are out of scope for this version.
 
-## Licença
+## License
 
-Distribuído sob a licença MIT. Consulte `LICENSE`.
+Distributed under the MIT license. See `LICENSE`.

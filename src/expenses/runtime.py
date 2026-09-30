@@ -21,7 +21,6 @@ __all__ = [
     "clear_caches",
     "notify_error",
     "notify_warning",
-    "register_clear_hook",
 ]
 
 
@@ -82,27 +81,7 @@ class _TTLCache:
 _data_cache = _TTLCache()
 cache_data = _data_cache.memoize
 
-_clear_hooks: list[Callable[[], None]] = [_data_cache.clear]
-_hooks_lock = threading.Lock()
-
-
-def register_clear_hook(func: Callable[[], None]) -> None:
-    """Registers an extra callback to run on every ``clear_caches()`` call.
-
-    Lets a frontend hook its own cache invalidation (e.g. ``st.cache_data.clear``) into the
-    shared bust without the backend importing that frontend.
-    """
-    with _hooks_lock:
-        if func not in _clear_hooks:
-            _clear_hooks.append(func)
-
 
 def clear_caches() -> None:
-    """Invalidates every registered data cache. Replaces ``st.cache_data.clear()``."""
-    with _hooks_lock:
-        hooks = list(_clear_hooks)
-    for hook in hooks:
-        try:
-            hook()
-        except Exception:  # noqa: BLE001
-            logger.exception("cache clear hook failed")
+    """Invalidates every ``cache_data`` memo. Replaces ``st.cache_data.clear()``."""
+    _data_cache.clear()

@@ -15,8 +15,7 @@ MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 
 # Unified Table Name across all Medallion database layers
-MYSQL_TABLE = os.getenv("MYSQL_TABLE", os.getenv("MYSQL_ID_TABLE", "personal_expenses"))
-MYSQL_ID_TABLE = MYSQL_TABLE
+MYSQL_TABLE = os.getenv("MYSQL_TABLE", "personal_expenses")
 
 # Medallion Architecture Database Names
 MYSQL_DB_RAW = os.getenv("MYSQL_DB_RAW", "raw")
@@ -27,13 +26,28 @@ MYSQL_DB_SILVER = os.getenv("MYSQL_DB_SILVER", "silver")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
+# Repository root. Project files (docs/data, docs/template) are resolved against it, not the
+# current directory, because each app under app/ runs from its own folder.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DOCS_DIR = PROJECT_ROOT / "docs"
+PROMPT_TEMPLATE_PATH = DOCS_DIR / "template" / "prompt.md"
+
+
+def _project_path(value: str | Path) -> Path:
+    """Absolute paths are kept; relative ones are taken from the repository root."""
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 # Category dictionary paths. The tracked seed is immutable; runtime learning is written to a
 # git-ignored local file so merchant-derived data cannot be committed accidentally.
-CATEGORY_SEED_PATH = Path("data/categories.default.json")
-CATEGORY_LOCAL_PATH = Path(os.getenv("CATEGORY_LOCAL_PATH", "data/categories.local.json"))
+CATEGORY_SEED_PATH = DOCS_DIR / "data" / "categories.default.json"
+CATEGORY_LOCAL_PATH = _project_path(
+    os.getenv("CATEGORY_LOCAL_PATH", "docs/data/categories.local.json")
+)
 
-# Streamlit Port Configuration
-STREAMLIT_PORT = int(os.getenv("STREAMLIT_PORT", os.getenv("STREAMLIT_SERVER_PORT", "8503")))
+# Dash Port Configuration
+DASH_PORT = int(os.getenv("DASH_PORT", "8050"))
 
 # Category metadata, colors, and English labels
 CATEGORY_CONFIG = {
@@ -120,10 +134,6 @@ def normalize_merchant_id(raw_id: str) -> str:
 
 def get_category_color(cat: str) -> str:
     return CATEGORY_CONFIG.get(cat, {}).get("color", "#9E9E9E")
-
-
-def get_category_label(cat: str) -> str:
-    return CATEGORY_CONFIG.get(cat, {}).get("label", cat)
 
 
 def read_file(path: str | Path, is_json: bool = False):

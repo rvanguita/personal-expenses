@@ -3,7 +3,7 @@ import calendar
 import numpy as np
 import pandas as pd
 
-from src.expenses.config import (
+from expenses.config import (
     ANOMALY_MIN_CATEGORY_TX,
     ANOMALY_Z_THRESHOLD,
     RECURRING_MAX_CV,
@@ -169,25 +169,6 @@ def get_top_merchants(df_expenses: pd.DataFrame, top_n: int = 10) -> pd.DataFram
         .sort_values(by="total_spent", ascending=True)
         .tail(top_n)
     )
-
-
-def get_day_of_week_spending(df_expenses: pd.DataFrame) -> pd.DataFrame:
-    """Calculates net spending grouped by day of the week in standard order."""
-    order_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    if df_expenses.empty:
-        return pd.DataFrame({"dia_semana": order_days, "cost": [0.0] * 7})
-
-    if "is_payment" in df_expenses.columns:
-        df_eff = df_expenses[~df_expenses["is_payment"]].copy()
-    else:
-        df_eff = df_expenses[
-            ~df_expenses["id"].str.contains(
-                r"PAGAMENTO|PAGTO|PAYMENT|PAGAMENTOS VALIDOS", case=False, regex=True, na=False
-            )
-        ].copy()
-
-    df_eff["dia_semana"] = df_eff["date_buy"].dt.day_name()
-    return df_eff.groupby("dia_semana")["cost"].sum().reindex(order_days).fillna(0.0).reset_index()
 
 
 def get_future_installments_details(df_full: pd.DataFrame) -> pd.DataFrame:
@@ -791,76 +772,6 @@ def get_category_momentum(df_full: pd.DataFrame, window: int = 3) -> pd.DataFram
         .sort_values("pct_change_over_window", ascending=False)
         .reset_index(drop=True)
     )
-
-
-def get_financial_health_score(
-    df_full: pd.DataFrame, reference_limit: float = REFERENCE_BUDGET_LIMIT
-) -> dict:
-    """Composite 0-100 financial health score blending installment burden, anomaly rate, next-month
-    budget proximity, and month-over-month spend volatility, each weighted sub-score 0-100."""
-    empty_result = {
-        "has_data": False,
-        "score": 0,
-        "rating": "N/A",
-        "components": {},
-        "top_factor": "N/A",
-    }
-    if df_full.empty:
-        return empty_result
-
-    kpis = calculate_kpis(df_full, df_full)
-    if kpis["total_spent"] <= 0:
-        return empty_result
-
-    df_eff = _exclude_payments(df_full)
-
-    installment_score = max(0.0, 100.0 - (kpis["installment_pct"] / 60.0) * 100.0)
-
-    anomalies = get_spending_anomalies(
-        df_eff, z_threshold=ANOMALY_Z_THRESHOLD, min_category_tx=ANOMALY_MIN_CATEGORY_TX
-    )
-    anomaly_score = max(0.0, 100.0 - (len(anomalies) / 5.0) * 100.0)
-
-    next_metrics = get_next_month_commitment_metrics(df_full, reference_limit=reference_limit)
-    if next_metrics["has_data"] and reference_limit > 0:
-        budget_score = max(0.0, 100.0 - next_metrics["pct_of_limit"])
-    else:
-        budget_score = 100.0
-
-    volatility_score = max(0.0, 100.0 - min(abs(kpis["mom_delta_pct"]), 100.0))
-
-    components = {
-        "installment_burden": round(installment_score, 1),
-        "anomalies": round(anomaly_score, 1),
-        "budget_proximity": round(budget_score, 1),
-        "spend_volatility": round(volatility_score, 1),
-    }
-
-    score = round(
-        installment_score * 0.3
-        + anomaly_score * 0.25
-        + budget_score * 0.25
-        + volatility_score * 0.2
-    )
-
-    if score >= 80:
-        rating = "Excellent"
-    elif score >= 60:
-        rating = "Good"
-    elif score >= 40:
-        rating = "Fair"
-    else:
-        rating = "At Risk"
-
-    top_factor = min(components, key=components.get)
-
-    return {
-        "has_data": True,
-        "score": int(score),
-        "rating": rating,
-        "components": components,
-        "top_factor": top_factor,
-    }
 
 
 def get_merchant_frequency_change(
