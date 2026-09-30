@@ -1,8 +1,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 
-import src.expenses.ui.charts as charts
-from src.expenses.ui.charts import add_total_line_trace, build_ranked_bar_chart
+import expenses_streamlit.charts as charts
+from expenses_streamlit.charts import add_total_line_trace, build_ranked_bar_chart
 
 
 def test_add_total_line_trace_has_no_on_plot_labels():
@@ -42,3 +42,33 @@ def test_chart_context_overrides_theme_and_amounts():
         fig = build_ranked_bar_chart(df, "id", "cost")
     assert fig.layout.font.color == "#1F2933"
     assert not fig.data[0].text
+
+
+def test_theme_helpers_follow_the_active_base():
+    with charts.chart_context(theme_base="light"):
+        assert charts._is_light_theme() is True
+        assert charts.grid_color() == "#D0D7DE"
+        assert charts.axis_text_color() == "#1F2933"
+        assert charts.total_line_color() == "#1F2933"
+    with charts.chart_context(theme_base="dark"):
+        assert charts._is_light_theme() is False
+        assert charts.grid_color() == charts.GRID_COLOR
+        assert charts.axis_text_color() == charts.AXIS_TEXT_COLOR
+        assert charts.total_line_color() == "#FFFFFF"
+
+
+def test_apply_chart_theme_money_axis_and_legend_modes():
+    with charts.chart_context(theme_base="dark"):
+        fig = charts.apply_chart_theme(go.Figure(), height=300, legend="top")
+    assert fig.layout.height == 300
+    assert fig.layout.yaxis.tickprefix == "R$ "
+    assert fig.layout.legend.orientation == "h"
+    hidden = charts.apply_chart_theme(go.Figure(), legend="hidden")
+    assert hidden.layout.showlegend is False
+    bottom = charts.apply_chart_theme(go.Figure(), legend="bottom")
+    assert bottom.layout.margin.b == 130
+
+
+def test_budget_status_color():
+    assert charts.budget_status_color(True) == charts.STATUS_COLORS["critical"]
+    assert charts.budget_status_color(False) == charts.STATUS_COLORS["good"]

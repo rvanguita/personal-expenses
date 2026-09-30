@@ -6,8 +6,8 @@ from contextlib import contextmanager
 
 import pandas as pd
 
-import src.expenses.ai_categorizer as cat
-from src.expenses.ai_categorizer import (
+import expenses.ai_categorizer as cat
+from expenses.ai_categorizer import (
     gemini_categorize_unmatched,
     match_merchants_with_history,
 )

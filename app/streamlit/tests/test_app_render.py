@@ -9,19 +9,20 @@ import pytest
 from streamlit.proto.Dataframe_pb2 import Dataframe as DataframeProto
 from streamlit.testing.v1 import AppTest
 
-from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
+from expenses.parser import parse_raw_csv, transform_raw_to_bronze
 
 MAIN_SCRIPT = str(Path(__file__).resolve().parents[1] / "main.py")
 
 EXPECTED_TABS = [
-    "📊 Overview",
-    "📈 Trends",
-    "🔔 Watchlist",
-    "🔍 Categories",
-    "📑 Reports",
-    "📥 Ingest",
-    "🏷️ Categorize",
-    "🛠️ Manage Data",
+    "Overview",
+    "Trends",
+    "Watchlist",
+    "Categories",
+    "Reports",
+    "Data",
+    "Ingest",
+    "Categorize",
+    "Manage",
 ]
 
 SILVER_LAYER_COLUMNS = [
@@ -43,7 +44,7 @@ def _returning(frame: pd.DataFrame | None):
 @pytest.fixture
 def offline_app(monkeypatch):
     """Factory: ``offline_app(analytics_frame, raw=, bronze=, silver_layer=)`` -> AppTest for
-    ``main.py`` with every DB read stubbed. ``analytics_frame`` feeds ``load_expenses_data``; the
+    ``app/streamlit/main.py`` with every DB read stubbed. ``analytics_frame`` feeds ``load_expenses_data``; the
     layer frames feed the Categorize / Manage Data tabs (empty when omitted)."""
 
     def _factory(
@@ -53,14 +54,14 @@ def offline_app(monkeypatch):
         bronze: pd.DataFrame | None = None,
         silver_layer: pd.DataFrame | None = None,
     ) -> AppTest:
-        database = importlib.import_module("src.expenses.database")
+        database = importlib.import_module("expenses.database")
         monkeypatch.setattr(database, "get_db_engine", lambda *_a, **_k: object())
         monkeypatch.setattr(database, "load_expenses_data", lambda: silver)
-        categorizer = importlib.import_module("src.expenses.ai_categorizer")
+        categorizer = importlib.import_module("expenses.ai_categorizer")
         monkeypatch.setattr(categorizer, "get_db_engine", lambda *_a, **_k: None)
         monkeypatch.setattr(categorizer, "create_medallion_tables", lambda *_a, **_k: None)
-        categorize = importlib.import_module("src.expenses.ui.tabs.categorize_tab")
-        management = importlib.import_module("src.expenses.ui.tabs.management")
+        categorize = importlib.import_module("expenses_streamlit.tabs.categorize_tab")
+        management = importlib.import_module("expenses_streamlit.tabs.management")
         for module in (categorize, management):
             monkeypatch.setattr(module, "get_db_engine", lambda *_a, **_k: None)
             monkeypatch.setattr(module, "load_bronze_data", _returning(bronze))
