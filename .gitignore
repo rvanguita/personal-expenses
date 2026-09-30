@@ -6,11 +6,11 @@
 **/.streamlit/secrets.toml
 
 # Financial data and learned merchant terms (never commit)
-data/categories.local.json
-data/**/*.csv
-data/**/*.tsv
-data/**/*.xlsx
-data/**/*.xls
+docs/data/categories.local.json
+docs/data/**/*.csv
+docs/data/**/*.tsv
+docs/data/**/*.xlsx
+docs/data/**/*.xls
 *.csv
 *.sqlite
 *.sqlite3

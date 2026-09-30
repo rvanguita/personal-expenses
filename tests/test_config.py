@@ -75,10 +75,10 @@ def test_category_derived_maps_parity():
 
 
 def test_read_file_text_and_json():
-    text = read_file("template/prompt.md")
+    text = read_file(config.PROMPT_TEMPLATE_PATH)
     assert isinstance(text, str) and text.strip()
 
-    data = read_file("data/categories.default.json", is_json=True)
+    data = read_file(config.CATEGORY_SEED_PATH, is_json=True)
     assert isinstance(data, dict)
     assert all(isinstance(v, list) for v in data.values())
 
@@ -107,5 +107,7 @@ def test_project_files_resolve_from_any_directory(monkeypatch, tmp_path):
     assert config.CATEGORY_SEED_PATH.is_absolute() and config.CATEGORY_SEED_PATH.exists()
     assert config.PROMPT_TEMPLATE_PATH.is_absolute() and config.PROMPT_TEMPLATE_PATH.exists()
     assert config.CATEGORY_LOCAL_PATH.is_absolute()
+    assert config.CATEGORY_SEED_PATH.parent == config.DOCS_DIR / "data"
+    assert config.PROMPT_TEMPLATE_PATH.parent == config.DOCS_DIR / "template"
     assert config._project_path("data/x.json") == config.PROJECT_ROOT / "data" / "x.json"
     assert config._project_path(tmp_path / "x.json") == tmp_path / "x.json"

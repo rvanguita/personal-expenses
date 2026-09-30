@@ -25,8 +25,7 @@ RUN uv sync --frozen --no-dev --package expenses-streamlit --no-install-workspac
 
 # Shared backend (package `expenses`), project data and this app only
 COPY src/ ./src/
-COPY data/ ./data/
-COPY template/ ./template/
+COPY docs/ ./docs/
 COPY app/streamlit/ ./app/streamlit/
 RUN uv sync --frozen --no-dev --package expenses-streamlit
 
