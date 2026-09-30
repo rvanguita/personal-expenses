@@ -83,8 +83,8 @@ def silver_history_df():
     shaped by the real ``_shape_silver_frame`` so every derived column the UI needs exists."""
     import random
 
-    from src.expenses.config import CATEGORY_CONFIG
-    from src.expenses.database import _shape_silver_frame
+    from expenses.config import CATEGORY_CONFIG
+    from expenses.database import _shape_silver_frame
 
     rng = random.Random(7)
     categories = list(CATEGORY_CONFIG)
@@ -131,3 +131,15 @@ def silver_history_df():
             },
         ]
     return _shape_silver_frame(pd.DataFrame(rows))
+
+
+def _boom(*_args, **_kwargs):
+    raise AssertionError("database access happened at import time")
+
+
+@pytest.fixture
+def no_db(monkeypatch):
+    """Any DB entrypoint touched while importing fails loudly."""
+    monkeypatch.setattr("expenses.database.get_db_engine", _boom)
+    monkeypatch.setattr("expenses.database.create_medallion_tables", _boom)
+    monkeypatch.setattr("expenses.database.ensure_databases_exist", _boom)

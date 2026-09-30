@@ -1,6 +1,6 @@
-from src.expenses.analytics import calculate_kpis
-from src.expenses.ui import insights
-from src.expenses.ui.insights import Insight, attention_insights, uncategorized_insight
+from expenses.analytics import calculate_kpis
+from expenses_streamlit import insights
+from expenses_streamlit.insights import Insight, attention_insights, uncategorized_insight
 
 
 def _kpis(installment_pct: float) -> dict:
@@ -49,3 +49,11 @@ def test_uncategorized_insight_threshold(sample_expenses_df):
     insight = uncategorized_insight(df)
     assert insight is not None and insight.severity == "warning"
     assert "48.2%" in insight.message
+
+
+def test_installment_insight_threshold():
+    limit = insights.INSTALLMENT_BURDEN_WARNING_PCT
+    high = insights._installment_insight({"installment_pct": limit + 5})
+    low = insights._installment_insight({"installment_pct": limit - 5})
+    assert high.severity == "warning" and "alert above" in high.message
+    assert low.severity == "good"

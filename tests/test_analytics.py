@@ -1,10 +1,9 @@
 import pandas as pd
 
-from src.expenses.analytics import (
+from expenses.analytics import (
+    _exclude_payments,
     calculate_kpis,
     get_category_momentum,
-    get_day_of_week_spending,
-    get_financial_health_score,
     get_future_installments_details,
     get_future_installments_projection,
     get_merchant_frequency_change,
@@ -46,12 +45,6 @@ def test_get_top_merchants(sample_expenses_df):
     # dominant category carried through for bar coloring
     assert "category" in top_df.columns
     assert top_df.set_index("id").loc["DEMO STORE", "category"] == "shopping"
-
-
-def test_get_day_of_week_spending(sample_expenses_df):
-    days_df = get_day_of_week_spending(sample_expenses_df)
-    assert len(days_df) == 7
-    assert "Monday" in days_df["dia_semana"].values
 
 
 def test_get_future_installments_projection(sample_expenses_df):
@@ -312,48 +305,6 @@ def test_get_category_momentum_empty():
     assert "direction" in momentum.columns
 
 
-def _build_health_score_rows(is_installment: bool):
-    rows = []
-    for ym, date_str in [("2026-01", "2026-01-05"), ("2026-02", "2026-02-05")]:
-        for i in range(3):
-            rows.append(
-                {
-                    "date": pd.Timestamp(date_str),
-                    "date_buy": pd.Timestamp(date_str),
-                    "id": f"MERCHANT_{i}",
-                    "cost": 100.0,
-                    "installment": 1 if is_installment else 0,
-                    "total_installments": 3 if is_installment else 0,
-                    "category": "groceries",
-                    "category_label": "Groceries",
-                    "year_month": ym,
-                    "is_installment": is_installment,
-                    "is_payment": False,
-                }
-            )
-    return pd.DataFrame(rows)
-
-
-def test_get_financial_health_score_clean_data():
-    health = get_financial_health_score(_build_health_score_rows(is_installment=False))
-    assert health["has_data"] is True
-    assert health["score"] >= 80
-    assert health["rating"] == "Excellent"
-
-
-def test_get_financial_health_score_penalizes_installment_burden():
-    health = get_financial_health_score(_build_health_score_rows(is_installment=True))
-    assert health["has_data"] is True
-    assert health["components"]["installment_burden"] < 100
-    assert health["score"] < 100
-
-
-def test_get_financial_health_score_empty():
-    health = get_financial_health_score(pd.DataFrame())
-    assert health["has_data"] is False
-    assert health["score"] == 0
-
-
 def test_get_merchant_frequency_change_detects_increase():
     baseline_months = ["2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"]
     rows = [
@@ -403,3 +354,22 @@ def test_get_merchant_frequency_change_insufficient_baseline():
     ]
     freq = get_merchant_frequency_change(pd.DataFrame(rows))
     assert freq.empty
+
+
+def test_exclude_payments_with_and_without_flag_column():
+    df = pd.DataFrame(
+        {
+            "id": ["PAGAMENTO FATURA", "MARKET", "PAYMENT RECEIVED", "SHOP"],
+            "cost": [-100.0, 10.0, -50.0, 20.0],
+        }
+    )
+    # Without the derived flag, the settlement regex is applied to the merchant id.
+    assert _exclude_payments(df)["id"].tolist() == ["MARKET", "SHOP"]
+    flagged = df.assign(is_payment=[False, True, False, False])
+    # With the flag present, it is the single source of truth.
+    assert _exclude_payments(flagged)["id"].tolist() == [
+        "PAGAMENTO FATURA",
+        "PAYMENT RECEIVED",
+        "SHOP",
+    ]
+    assert _exclude_payments(df) is not df  # always a copy
