@@ -24,8 +24,8 @@ def habits(silver_history_df):
 
 
 def test_empty_figure():
-    fig = empty_figure("Nada aqui", height=200)
-    assert fig.layout.annotations[0].text == "Nada aqui"
+    fig = empty_figure("Nothing here", height=200)
+    assert fig.layout.annotations[0].text == "Nothing here"
     assert fig.layout.height == 200 and not fig.data
 
 
@@ -41,7 +41,7 @@ def test_ranked_bar_figure_orders_and_colors():
 
 def test_split_figure(habits):
     fig = split_figure(habits["split"])
-    assert [t.name for t in fig.data] == ["À vista", "Parcelado"]
+    assert [t.name for t in fig.data] == ["Single payment", "Installments"]
     assert [t.marker.color for t in fig.data] == [ACCENT, COMMITMENT]
     assert split_figure(habits["split"] * 0).layout.annotations
 
@@ -49,7 +49,7 @@ def test_split_figure(habits):
 def test_bands_figure(habits):
     fig = bands_figure(habits["bands"])
     assert list(fig.data[0].x) == list(habits["bands"]["band"])
-    assert fig.data[0].text[0].endswith("compras")
+    assert fig.data[0].text[0].endswith("purchases")
     assert bands_figure(habits["bands"].assign(tx=0)).layout.annotations
 
 
@@ -82,7 +82,7 @@ def test_theme_helpers():
     assert category_color("unknown") == category_color("not_found")
     layout = plotly_layout(height=123, showlegend=True)
     assert layout["height"] == 123 and layout["showlegend"] is True
-    assert layout["separators"] == ",."
+    assert layout["separators"] == ".,"
     assert layout["yaxis"]["tickprefix"] == "R$ "
 
 

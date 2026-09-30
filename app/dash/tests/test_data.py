@@ -9,9 +9,9 @@ from expenses.filters import DEFAULT_FILTERS, apply_filters
 from expenses_dash.data import (
     PERIOD_LABELS,
     DashboardView,
+    _category_labels,
     _fill_commitments,
     _frame,
-    _pt_labels,
     build_view,
     filter_options,
     kpi_cards,
@@ -25,7 +25,7 @@ from expenses_dash.figures import (
     merchants_figure,
     monthly_figure,
 )
-from expenses_dash.fmt import LABEL_PT_TO_KEY
+from expenses_dash.fmt import LABEL_TO_KEY
 from expenses_dash.theme import PALETTE
 
 
@@ -97,13 +97,13 @@ def test_filter_options(silver_history_df):
     options = filter_options(silver_history_df)
     assert [key for key, _ in options["periods"]] == list(PERIOD_LABELS)
     assert options["holders"] == ["CARDHOLDER_A", "CARDHOLDER_B"]
-    assert ("food", "Alimentação") in options["categories"]
+    assert ("food", "Food & Dining") in options["categories"]
     assert filter_options(pd.DataFrame())["holders"] == []
 
 
 def test_kpi_cards(silver_history_df):
     cards = kpi_cards(build_view(silver_history_df))
-    assert [c["label"] for c in cards][:2] == ["Gasto no período", "Média mensal"]
+    assert [c["label"] for c in cards][:2] == ["Spent in period", "Monthly average"]
     assert all(c["value"].startswith(("R$", "-R$")) for c in cards)
 
 
@@ -123,26 +123,26 @@ def test_figures_use_only_the_palette(silver_history_df):
 def test_category_bars_use_category_colors(silver_history_df):
     view = build_view(silver_history_df, "All History")
     bar = category_figure(view).data[0]
-    assert list(bar.marker.color) == [CATEGORY_COLORS[LABEL_PT_TO_KEY[label]] for label in bar.y]
+    assert list(bar.marker.color) == [CATEGORY_COLORS[LABEL_TO_KEY[label]] for label in bar.y]
     assert len(set(merchants_figure(view).data[0].marker.color)) > 1
 
 
 def test_month_label():
-    assert month_label("2026-03") == "mar/26"
+    assert month_label("2026-03") == "Mar 26"
     assert month_label("bad") == "bad"
 
 
 def test_spend_delta_tones():
-    assert spend_delta(8.64, "vs mês anterior") == ("▲ 8,6% vs mês anterior", "bad")
-    assert spend_delta(-6.5, "vs anterior") == ("▼ 6,5% vs anterior", "good")
+    assert spend_delta(8.64, "vs previous month") == ("▲ 8.6% vs previous month", "bad")
+    assert spend_delta(-6.5, "vs previous") == ("▼ 6.5% vs previous", "good")
     assert spend_delta(0.2, "x")[1] == "neutral"
-    assert spend_delta(None, "x") == ("sem base de comparação", "neutral")
+    assert spend_delta(None, "x") == ("no comparison base", "neutral")
 
 
-def test_pt_labels(silver_history_df):
-    labelled = _pt_labels(silver_history_df)
-    assert set(labelled.loc[labelled["category"] == "food", "category_label"]) == {"Alimentação"}
-    assert _pt_labels(pd.DataFrame()).empty
+def test_category_labels(silver_history_df):
+    labelled = _category_labels(silver_history_df)
+    assert set(labelled.loc[labelled["category"] == "food", "category_label"]) == {"Food & Dining"}
+    assert _category_labels(pd.DataFrame()).empty
 
 
 def test_frame_default_factory():

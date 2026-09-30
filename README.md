@@ -73,16 +73,16 @@ Five analysis tabs, each answering one question, plus a **Data** tab for data op
 
 ### Dash (`app/dash`)
 
-A read-only dashboard with a Portuguese UI (values formatted as R$ 1.234,56), dark theme and per-category colors, using the same period, cardholder and category filters:
+A read-only dashboard in English (values in reais, formatted as R$ 1,234.56), with a dark theme and per-category colors, using the same period, cardholder and category filters:
 
 | Tab | What it shows |
 | --- | --- |
-| Visão geral (Overview) | Spend in the period, monthly average, latest invoice, next-month installments, monthly evolution, categories, merchants and largest purchases |
-| Tendências (Trends) | Current vs previous period, same months last year, category × month heatmap and category momentum |
-| Hábitos (Habits) | Single payment vs installments, ticket-size bands, weekday, spend per cardholder and merchant concentration |
-| Atenção (Watchlist) | Fixed cost, recurring charges, unusual purchases, uncategorized spend, new merchants and frequency changes |
-| Categorias (Categories) | One category in detail: total, share, history, merchants and largest purchases |
-| Relatórios (Reports) | Installments vs the limit, upcoming installments, invoice totals and CSV download |
+| Overview | Spend in the period, monthly average, latest invoice, next-month installments, monthly evolution, categories, merchants and largest purchases |
+| Trends | Current vs previous period, same months last year, category × month heatmap and category momentum |
+| Habits | Single payment vs installments, ticket-size bands, weekday, spend per cardholder and merchant concentration |
+| Watchlist | Fixed cost, recurring charges, unusual purchases, uncategorized spend, new merchants and frequency changes |
+| Categories | One category in detail: total, share, history, merchants and largest purchases |
+| Reports | Installments vs the limit, upcoming installments, invoice totals and CSV download |
 
 Ingestion, categorization and maintenance stay in the Streamlit app.
 

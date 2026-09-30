@@ -15,21 +15,21 @@ from expenses_dash.theme import category_color
 GRAPH_CONFIG = {"displayModeBar": False}
 FIGURE_IDS = ("monthly", "categories", "merchants", "commitments")
 TABS = (
-    ("overview", "Visão geral"),
-    ("trends", "Tendências"),
-    ("habits", "Hábitos"),
-    ("watchlist", "Atenção"),
-    ("category", "Categorias"),
-    ("reports", "Relatórios"),
+    ("overview", "Overview"),
+    ("trends", "Trends"),
+    ("habits", "Habits"),
+    ("watchlist", "Watchlist"),
+    ("category", "Categories"),
+    ("reports", "Reports"),
 )
 DROPDOWN_LABELS = {
-    "select_all": "Selecionar todos",
-    "deselect_all": "Limpar seleção",
-    "selected_count": "{num_selected} selecionados",
-    "search": "Buscar",
-    "clear_search": "Limpar busca",
-    "clear_selection": "Limpar",
-    "no_options_found": "Nada encontrado",
+    "select_all": "Select all",
+    "deselect_all": "Clear selection",
+    "selected_count": "{num_selected} selected",
+    "search": "Search",
+    "clear_search": "Clear search",
+    "clear_selection": "Clear",
+    "no_options_found": "No matches",
 }
 
 
@@ -80,13 +80,13 @@ def _cell(value, kind: str, record) -> html.Td:
     if kind == "money":
         return html.Td(brl(value), className="pe-num")
     if kind == "date":
-        return html.Td(pd.Timestamp(value).strftime("%d/%m/%Y") if pd.notna(value) else "—")
+        return html.Td(pd.Timestamp(value).strftime("%Y-%m-%d") if pd.notna(value) else "—")
     if kind == "month":
         return html.Td(month_label(value))
     if kind == "pct":
         return html.Td(pct(value, signed=True), className="pe-num")
     if kind == "rate":
-        return html.Td(f"{value:.1f}".replace(".", ","), className="pe-num")
+        return html.Td(f"{value:.1f}", className="pe-num")
     if kind == "int":
         return html.Td(integer(value), className="pe-num")
     if kind == "category":
@@ -104,7 +104,7 @@ def table(df: pd.DataFrame, columns: list[tuple[str, str, str]], max_rows: int |
     """``columns`` = [(header, column, kind)], kind in text/money/date/month/pct/rate/int/category
     (``category`` also needs a ``category`` key column for the colour dot)."""
     if df.empty:
-        return empty("Nada para mostrar.")
+        return empty("Nothing to show.")
     data = df.head(max_rows) if max_rows else df
     header = html.Thead(
         html.Tr(
@@ -138,10 +138,10 @@ def purchases_table(df: pd.DataFrame) -> html.Div:
     return table(
         df,
         [
-            ("Data", "date_buy", "date"),
-            ("Estabelecimento", "id", "text"),
-            ("Categoria", "category_label", "category"),
-            ("Valor", "cost", "money"),
+            ("Date", "date_buy", "date"),
+            ("Merchant", "id", "text"),
+            ("Category", "category_label", "category"),
+            ("Amount", "cost", "money"),
         ],
     )
 
@@ -157,7 +157,7 @@ def _filters(options: dict) -> html.Div:
     return html.Div(
         [
             _filter(
-                "Período",
+                "Period",
                 dcc.Dropdown(
                     id="f-period",
                     options=[{"label": v, "value": k} for k, v in PERIOD_LABELS.items()],
@@ -168,22 +168,22 @@ def _filters(options: dict) -> html.Div:
                 ),
             ),
             _filter(
-                "Titular",
+                "Cardholder",
                 dcc.Dropdown(
                     id="f-holders",
                     options=options["holders"],
                     multi=True,
-                    placeholder="Todos",
+                    placeholder="All",
                     labels=DROPDOWN_LABELS,
                 ),
             ),
             _filter(
-                "Categoria",
+                "Category",
                 dcc.Dropdown(
                     id="f-categories",
                     options=[{"label": lbl, "value": key} for key, lbl in options["categories"]],
                     multi=True,
-                    placeholder="Todas",
+                    placeholder="All",
                     labels=DROPDOWN_LABELS,
                 ),
             ),
@@ -195,14 +195,14 @@ def _filters(options: dict) -> html.Div:
 def _overview() -> list:
     return [
         html.Section(id="kpis", className="pe-grid-4"),
-        card("Evolução mensal · média móvel 3 meses", graph(None, "fig-monthly")),
+        card("Monthly spend · 3-month moving average", graph(None, "fig-monthly")),
         row(
-            card("Por categoria", graph(None, "fig-categories")),
-            card("Top 10 estabelecimentos", graph(None, "fig-merchants")),
+            card("By category", graph(None, "fig-categories")),
+            card("Top 10 merchants", graph(None, "fig-merchants")),
         ),
         row(
-            card("Parcelas futuras", graph(None, "fig-commitments")),
-            card("Maiores compras do período", html.Div(id="largest")),
+            card("Future installments", graph(None, "fig-commitments")),
+            card("Largest purchases in the period", html.Div(id="largest")),
         ),
     ]
 
@@ -210,7 +210,7 @@ def _overview() -> list:
 def _category_tab() -> list:
     picker = html.Div(
         _filter(
-            "Categoria analisada",
+            "Category",
             dcc.Dropdown(
                 id="f-category-detail", clearable=False, searchable=True, labels=DROPDOWN_LABELS
             ),
@@ -225,7 +225,7 @@ def _reports_tab() -> list:
         html.Div(id="reports-content"),
         html.Div(
             [
-                html.Button("Baixar CSV da seleção", id="btn-csv", className="pe-button"),
+                html.Button("Download CSV", id="btn-csv", className="pe-button"),
                 dcc.Download(id="download-csv"),
             ],
             className="pe-actions",
@@ -263,7 +263,7 @@ def build_layout(options: dict) -> html.Main:
         [
             html.Header(
                 [
-                    html.H1("Despesas", className="pe-title"),
+                    html.H1("Expenses", className="pe-title"),
                     html.P(id="subtitle", className="pe-subtitle"),
                 ]
             ),

@@ -24,15 +24,15 @@ from expenses_dash.layout import (
     table,
 )
 
-CARD = {"label": "Gasto", "value": "R$ 10,00", "note": "▲ 5,0%", "help": "ajuda", "tone": "bad"}
+CARD = {"label": "Spend", "value": "R$ 10.00", "note": "▲ 5.0%", "help": "help text", "tone": "bad"}
 
 
 def test_card_and_note():
-    c = card("Título", html.P("corpo"), note="nota")
+    c = card("Title", html.P("body"), note="note")
     assert c.className == "pe-card"
     title, note, body = c.children
-    assert (title.children, note.children, body.children) == ("Título", "nota", "corpo")
-    assert len(card("Só título").children) == 1
+    assert (title.children, note.children, body.children) == ("Title", "note", "body")
+    assert len(card("Title only").children) == 1
 
 
 def test_graph_with_and_without_id():
@@ -44,9 +44,9 @@ def test_graph_with_and_without_id():
 
 def test_kpi_card_tone_and_help():
     c = kpi_card(CARD)
-    assert c.title == "ajuda"
+    assert c.title == "help text"
     note = c.children[2]
-    assert note.children == "▲ 5,0%" and "pe-tone-bad" in note.className
+    assert note.children == "▲ 5.0%" and "pe-tone-bad" in note.className
     no_tone = {k: v for k, v in CARD.items() if k != "tone"}
     assert "pe-tone-neutral" in kpi_card(no_tone).children[2].className
 
@@ -59,15 +59,15 @@ def test_kpi_row_row_and_empty():
 
 def test_cell_kinds():
     record = {"category": "food"}
-    assert _cell(1234.5, "money", record).children == "R$ 1.234,50"
-    assert _cell(pd.Timestamp("2026-03-01"), "date", record).children == "01/03/2026"
+    assert _cell(1234.5, "money", record).children == "R$ 1,234.50"
+    assert _cell(pd.Timestamp("2026-03-01"), "date", record).children == "2026-03-01"
     assert _cell(pd.NaT, "date", record).children == "—"
-    assert _cell("2026-03", "month", record).children == "mar/26"
-    assert _cell(12.34, "pct", record).children == "+12,3%"
-    assert _cell(1.26, "rate", record).children == "1,3"
-    assert _cell(1234, "int", record).children == "1.234"
-    dot, label = _cell("Alimentação", "category", record).children
-    assert label == "Alimentação" and dot.style["backgroundColor"] == "#FF9800"
+    assert _cell("2026-03", "month", record).children == "Mar 26"
+    assert _cell(12.34, "pct", record).children == "+12.3%"
+    assert _cell(1.26, "rate", record).children == "1.3"
+    assert _cell(1234, "int", record).children == "1,234"
+    dot, label = _cell("Food & Dining", "category", record).children
+    assert label == "Food & Dining" and dot.style["backgroundColor"] == "#FF9800"
     assert _cell("texto", "text", record).children == "texto"
 
 
@@ -78,7 +78,7 @@ def test_table_headers_rows_and_limit():
     assert [th.children for th in head.children.children] == ["A", "Valor"]
     assert head.children.children[1].className == "pe-num"
     assert len(body.children) == 2
-    assert table(df.iloc[0:0], [("A", "a", "text")]).children == "Nada para mostrar."
+    assert table(df.iloc[0:0], [("A", "a", "text")]).children == "Nothing to show."
 
 
 def test_purchases_table():
@@ -87,7 +87,7 @@ def test_purchases_table():
             "date_buy": [pd.Timestamp("2026-01-02")],
             "id": ["LOJA"],
             "category": ["food"],
-            "category_label": ["Alimentação"],
+            "category_label": ["Food & Dining"],
             "cost": [10.0],
         }
     )
@@ -96,7 +96,7 @@ def test_purchases_table():
 
 
 def test_filter_and_filters(silver_history_df, ids):
-    f = _filter("Rótulo", dcc.Dropdown(id="dd"))
+    f = _filter("Label", dcc.Dropdown(id="dd"))
     assert f.children[0].htmlFor == "dd"
     assert ids(_filters(filter_options(silver_history_df))) == {
         "f-period",

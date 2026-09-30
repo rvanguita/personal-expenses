@@ -50,22 +50,22 @@ def _graphs(components) -> list[go.Figure]:
 def test_trends_view(silver_history_df):
     view = trends_view(silver_history_df, "Last 6 months")
     assert not view["is_empty"]
-    assert view["direction"] in {"Em alta", "Em queda", "Estável"}
+    assert view["direction"] in {"Rising", "Falling", "Stable"}
     assert view["pop"]["has_data"]
     assert len(view["pop"]["current_months"]) == 6
     assert set(view["yoy"]["month_name"]) <= {
-        "jan",
-        "fev",
-        "mar",
-        "abr",
-        "mai",
-        "jun",
-        "jul",
-        "ago",
-        "set",
-        "out",
-        "nov",
-        "dez",
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
     }
 
 
@@ -84,7 +84,7 @@ def test_category_view_defaults_to_largest_and_respects_choice(silver_history_df
     default = category_view(silver_history_df, "All History")
     assert default["selected"] == options[0][0]
     food = category_view(silver_history_df, "All History", selected="food")
-    assert food["selected"] == "food" and food["label"] == "Alimentação"
+    assert food["selected"] == "food" and food["label"] == "Food & Dining"
     assert food["count"] > 0 and food["avg_ticket"] == pytest.approx(food["total"] / food["count"])
     assert food["history"]["year_month"].is_monotonic_increasing
     assert len(food["largest"]) <= 10
@@ -114,8 +114,8 @@ def test_reports_view(silver_history_df):
 def test_export_frame(silver_history_df):
     frame = export_frame(silver_history_df, "Last 3 months", ["CARDHOLDER_A"])
     assert not frame.empty
-    assert set(frame["titular"]) == {"CARDHOLDER_A"}
-    assert "PAGAMENTO FATURA" not in set(frame["estabelecimento"])
+    assert set(frame["cardholder"]) == {"CARDHOLDER_A"}
+    assert "PAGAMENTO FATURA" not in set(frame["merchant"])
     assert export_frame(pd.DataFrame()).empty
 
 
@@ -124,7 +124,7 @@ def test_tabs_render_with_data(silver_history_df, tab):
     body = render_tab(tab, silver_history_df, "Last 6 months", None, None)
     assert body
     figures = _graphs(body)
-    assert bool(figures) == (tab != "watchlist"), tab  # Atenção is tables only
+    assert bool(figures) == (tab != "watchlist"), tab  # the watchlist is tables only
     for fig in figures:
         for trace in fig.data:
             marker = getattr(getattr(trace, "marker", None), "color", None)
@@ -166,7 +166,7 @@ def test_habits_view(silver_history_df):
     assert view["bands"]["tx"].sum() == view["count"]
     assert view["bands"]["share"].sum() == pytest.approx(100)
     assert view["weekday"]["tx"].sum() == view["count"]
-    assert view["weekday"]["day"].tolist()[0] == "Segunda"
+    assert view["weekday"]["day"].tolist()[0] == "Monday"
     assert view["split"].to_numpy().sum() == pytest.approx(view["total"])
     assert view["holders"].to_numpy().sum() == pytest.approx(view["total"])
     assert set(view["holders"].columns) == {"CARDHOLDER_A", "CARDHOLDER_B"}
@@ -181,7 +181,7 @@ def test_category_month_matrix(silver_history_df):
     matrix = category_month_matrix(sliced.df, sliced.months)
     assert list(matrix.columns) == sliced.months
     assert matrix.sum(axis=1).is_monotonic_decreasing
-    assert "Alimentação" in matrix.index
+    assert "Food & Dining" in matrix.index
     assert category_month_matrix(pd.DataFrame(), []).empty
 
 

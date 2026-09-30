@@ -39,9 +39,9 @@ def update_dashboard(
     view = build_view(df_full, period or DEFAULT_PERIOD, holders, categories)
     subtitle = view.period_label
     if view.last_invoice:
-        subtitle += f" · última fatura em {view.last_invoice}"
+        subtitle += f" · latest invoice on {view.last_invoice}"
     if view.is_empty:
-        kpis = [html.P("Nenhuma transação para os filtros selecionados.", className="pe-empty")]
+        kpis = [html.P("No transactions for the selected filters.", className="pe-empty")]
         table = []
     else:
         kpis = [kpi_card(card) for card in kpi_cards(view)]
@@ -69,7 +69,7 @@ def render_tab(tab: str, df_full: pd.DataFrame, period, holders, categories) -> 
 
 
 def render_category(df_full: pd.DataFrame, period, holders, categories, selected) -> tuple:
-    """(page body, dropdown options, dropdown value) for the Categorias tab."""
+    """(page body, dropdown options, dropdown value) for the Categories tab."""
     view = category_view(df_full, period, holders, categories, selected)
     options = [{"label": label, "value": key} for key, label in view["options"]]
     return category_page(view), options, view["selected"]
@@ -120,5 +120,5 @@ def register_callbacks(app: Dash, loader: Callable[[], pd.DataFrame]) -> None:
         if frame.empty:
             return no_update
         return dcc.send_data_frame(
-            frame.to_csv, "despesas.csv", index=False, sep=";", encoding="utf-8-sig"
+            frame.to_csv, "expenses.csv", index=False, sep=";", encoding="utf-8-sig"
         )
