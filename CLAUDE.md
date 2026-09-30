@@ -157,11 +157,14 @@ committed?* — with the same layout in both frontends:
 4. Category ranking | top 10 merchants (horizontal bars).
 5. Future installments per month | largest purchases table.
 
-Visual rules: **monochrome** — only `theme.ACCENT` (`#1F4E79`) and `theme.ACCENT_LIGHT` in figures
-(tested), neutral greys for text/grid, no per-category colours, no red/green deltas (Streamlit
-metrics use `delta_color="off"`). Fixed light theme (`.streamlit/config.toml` mirrors the tokens;
-`assets/dashboard.css` mirrors them for Dash). UI text is pt-BR. Use `width="stretch"`, never the
-deprecated `use_container_width`.
+Visual rules: **dark theme only** (`theme.BG`/`CARD`/`BORDER`/`TEXT`/`MUTED`; `.streamlit/config.toml`
+and `assets/dashboard.css` mirror the tokens, the CSS also overrides Dash 4's `--Dash-*` component
+variables). Chart colors: category bars use `config.CATEGORY_CONFIG` colors
+(`theme.category_color` / `category_label_color`; merchants take their dominant category's color),
+non-categorical series use `theme.SERIES_COLORS` — monthly total `ACCENT`, 3M average `AVERAGE`,
+future installments `COMMITMENT`. Figures may only use `theme.PALETTE` (tested). KPI deltas stay
+neutral (Streamlit metrics use `delta_color="off"`). UI text is pt-BR. Use `width="stretch"`,
+never the deprecated `use_container_width`.
 
 The Streamlit **Dados** page wraps the three data-operation modules in `ui/tabs/`
 (`import_tab`, `categorize_tab`, `management`); they take a MySQL `engine` and write to

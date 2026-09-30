@@ -1,13 +1,21 @@
 """Plotly figure builders for the dashboard (no Streamlit / Dash imports).
 
-Every figure uses only `theme.ACCENT` and `theme.ACCENT_LIGHT`.
+Category bars are coloured per category; other series use `theme.SERIES_COLORS`.
 """
 
 import pandas as pd
 import plotly.graph_objects as go
 
 from src.expenses.dashboard.data import DashboardView, month_label
-from src.expenses.dashboard.theme import ACCENT, ACCENT_LIGHT, MUTED, plotly_layout
+from src.expenses.dashboard.theme import (
+    ACCENT,
+    AVERAGE,
+    COMMITMENT,
+    MUTED,
+    category_color,
+    category_label_color,
+    plotly_layout,
+)
 
 HOVER_BRL = "%{customdata}<br>R$ %{y:,.2f}<extra></extra>"
 
@@ -53,7 +61,7 @@ def monthly_figure(view: DashboardView, height: int = 320) -> go.Figure:
                 x=labels,
                 y=monthly["moving_avg"],
                 mode="lines",
-                line={"color": ACCENT_LIGHT, "width": 2, "dash": "dash"},
+                line={"color": AVERAGE, "width": 2.5, "dash": "dash"},
                 name="Média 3M",
                 hovertemplate="Média 3M<br>R$ %{y:,.2f}<extra></extra>",
             ),
@@ -64,18 +72,23 @@ def monthly_figure(view: DashboardView, height: int = 320) -> go.Figure:
 
 
 def ranked_bar_figure(
-    df: pd.DataFrame, label_col: str, value_col: str, height: int = 360
+    df: pd.DataFrame,
+    label_col: str,
+    value_col: str,
+    colors: list[str] | None = None,
+    height: int = 360,
 ) -> go.Figure:
-    """Horizontal ranking, largest on top, one colour."""
+    """Horizontal ranking, largest on top; ``colors`` align with ``df`` rows."""
     if df.empty:
         return empty_figure(height=height)
-    data = df.sort_values(value_col, ascending=True)
+    data = df.assign(_color=colors if colors is not None else ACCENT)
+    data = data.sort_values(value_col, ascending=True)
     fig = go.Figure(
         go.Bar(
             x=data[value_col],
             y=data[label_col],
             orientation="h",
-            marker_color=ACCENT,
+            marker_color=data["_color"].tolist(),
             text=[f"R$ {v:,.0f}" for v in data[value_col]],
             textposition="outside",
             cliponaxis=False,
@@ -100,8 +113,7 @@ def commitments_figure(view: DashboardView, height: int = 360) -> go.Figure:
         go.Bar(
             x=labels,
             y=data["cost"],
-            marker_color=ACCENT_LIGHT,
-            marker_line={"color": ACCENT, "width": 1},
+            marker_color=COMMITMENT,
             customdata=labels,
             hovertemplate=HOVER_BRL,
         )
@@ -113,7 +125,17 @@ def commitments_figure(view: DashboardView, height: int = 360) -> go.Figure:
 def all_figures(view: DashboardView) -> dict[str, go.Figure]:
     return {
         "monthly": monthly_figure(view),
-        "categories": ranked_bar_figure(view.by_category, "category_label", "cost"),
-        "merchants": ranked_bar_figure(view.top_merchants, "id", "total_spent"),
+        "categories": ranked_bar_figure(
+            view.by_category,
+            "category_label",
+            "cost",
+            [category_label_color(c) for c in view.by_category["category_label"]],
+        ),
+        "merchants": ranked_bar_figure(
+            view.top_merchants,
+            "id",
+            "total_spent",
+            [category_color(c) for c in view.top_merchants.get("category", [])] or None,
+        ),
         "commitments": commitments_figure(view),
     }

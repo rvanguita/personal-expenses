@@ -1,11 +1,30 @@
-/* Dash dashboard styles — tokens mirror src/expenses/dashboard/theme.py */
+/* Dash dashboard styles (dark) — tokens mirror src/expenses/dashboard/theme.py */
 :root {
-  --accent: #1f4e79;
-  --text: #111827;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --bg: #f7f8fa;
-  --card: #ffffff;
+  color-scheme: dark;
+  --accent: #4c9be8;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #262b36;
+  --bg: #0f1117;
+  --card: #161a23;
+
+  /* Dash 4 core components (dropdowns) in the same dark palette */
+  --Dash-Fill-Inverse-Strong: #161a23;
+  --Dash-Fill-Interactive-Strong: #4c9be8;
+  --Dash-Fill-Interactive-Weak: rgba(76, 155, 232, 0.12);
+  --Dash-Fill-Primary-Hover: rgba(255, 255, 255, 0.05);
+  --Dash-Fill-Primary-Active: rgba(255, 255, 255, 0.08);
+  --Dash-Fill-Disabled: rgba(255, 255, 255, 0.06);
+  --Dash-Stroke-Strong: #3a4150;
+  --Dash-Stroke-Weak: #262b36;
+  --Dash-Text-Strong: #e5e7eb;
+  --Dash-Text-Primary: #e5e7eb;
+  --Dash-Text-Weak: #9ca3af;
+  --Dash-Text-Disabled: #6b7280;
+  --Dash-Shading-Strong: rgba(0, 0, 0, 0.6);
+  --Dash-Shading-Weak: rgba(0, 0, 0, 0.4);
+  --Dash-Tooltip-Background-Color: #161a23;
+  --Dash-Tooltip-Border-Color: #262b36;
 }
 
 * { box-sizing: border-box; }

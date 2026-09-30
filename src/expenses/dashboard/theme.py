@@ -1,21 +1,36 @@
-"""Design tokens shared by the Streamlit and Dash dashboards.
+"""Design tokens shared by the Streamlit and Dash dashboards (dark theme).
 
-The dashboard is deliberately monochrome: one accent hue (plus a lighter tint of it for secondary
-marks) over neutral greys. Categories never get their own colour — ranking and position carry the
-meaning instead.
+Category marks use each category's colour from `config.CATEGORY_CONFIG`; series that aren't
+categorical (monthly total, 3-month average, future installments) use the three series colours
+below.
 """
 
-ACCENT = "#1F4E79"
-ACCENT_LIGHT = "#9DB5CE"
-TEXT = "#111827"
-MUTED = "#6B7280"
-GRID = "#E5E7EB"
-BORDER = "#E5E7EB"
-BG = "#F7F8FA"
-CARD = "#FFFFFF"
+from src.expenses.config import CATEGORY_COLOR_MAP, CATEGORY_COLORS
+
+ACCENT = "#4C9BE8"  # monthly total, KPI values
+AVERAGE = "#F5B942"  # 3-month moving average
+COMMITMENT = "#2BB5A0"  # future installments
+TEXT = "#E5E7EB"
+MUTED = "#9CA3AF"
+GRID = "#262B36"
+BORDER = "#262B36"
+BG = "#0F1117"
+CARD = "#161A23"
 FONT = "Inter, -apple-system, 'Segoe UI', Roboto, sans-serif"
 
-PALETTE = (ACCENT, ACCENT_LIGHT)
+FALLBACK = CATEGORY_COLORS["not_found"]
+SERIES_COLORS = (ACCENT, AVERAGE, COMMITMENT)
+PALETTE = (*SERIES_COLORS, *CATEGORY_COLORS.values())
+
+
+def category_color(key: str) -> str:
+    """Colour for a category key (e.g. ``food``)."""
+    return CATEGORY_COLORS.get(key, FALLBACK)
+
+
+def category_label_color(label: str) -> str:
+    """Colour for a category display label (e.g. ``Food & Dining``)."""
+    return CATEGORY_COLOR_MAP.get(label, FALLBACK)
 
 
 def plotly_layout(height: int = 320, **overrides) -> dict:

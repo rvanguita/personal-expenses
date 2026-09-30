@@ -10,7 +10,7 @@ O projeto oferece o mesmo dashboard em Streamlit e em Dash sobre um pipeline em 
 - Arquitetura medalhão em três bancos MySQL independentes.
 - Deduplicação entre cargas e alinhamento automático de colunas.
 - Categorização por histórico, dicionário local e fallback opcional para o Gemini.
-- Dashboard único e monocromático (Streamlit e Dash): gasto, média mensal, última fatura, parcelas comprometidas, evolução mensal, categorias, estabelecimentos e maiores compras.
+- Dashboard único em modo escuro (Streamlit e Dash): gasto, média mensal, última fatura, parcelas comprometidas, evolução mensal, categorias, estabelecimentos e maiores compras.
 - Importação, categorização e manutenção das camadas pela página **Dados** do Streamlit.
 - Testes unitários sem dependência de MySQL ou Gemini ativos.
 
@@ -56,8 +56,9 @@ As camadas usam o mesmo nome de tabela, configurado por `MYSQL_TABLE`, em bancos
 ## Produto analítico
 
 Um único dashboard responde a uma pergunta: **quanto gastei, onde, e o que já está comprometido?**
-Ele é idêntico no Streamlit (`main.py`) e no Dash (`dash_app.py`) e usa uma só cor (azul-marinho
-`#1F4E79` e um tom claro dele) sobre cinzas neutros.
+Ele é idêntico no Streamlit (`main.py`) e no Dash (`dash_app.py`), em modo escuro. Barras de
+categoria e de estabelecimento usam a cor de cada categoria (`CATEGORY_CONFIG`); evolução mensal,
+média móvel e parcelas futuras têm cores próprias.
 
 | Bloco | Conteúdo |
 | --- | --- |

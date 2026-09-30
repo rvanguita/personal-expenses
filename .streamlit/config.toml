@@ -9,11 +9,12 @@ toolbarMode = "viewer"
 [browser]
 gatherUsageStats = false
 
-# Fixed light theme; the accent matches src/expenses/dashboard/theme.py::ACCENT.
+# Fixed dark theme; colors mirror src/expenses/dashboard/theme.py.
 [theme]
-base = "light"
-primaryColor = "#1F4E79"
-backgroundColor = "#F7F8FA"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#111827"
+base = "dark"
+primaryColor = "#4C9BE8"
+backgroundColor = "#0F1117"
+secondaryBackgroundColor = "#161A23"
+textColor = "#E5E7EB"
+borderColor = "#262B36"
 font = "sans serif"

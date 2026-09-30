@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.expenses.analytics import calculate_kpis
+from src.expenses.config import CATEGORY_COLOR_MAP
 from src.expenses.dashboard import (
     PERIOD_LABELS,
     all_figures,
@@ -83,14 +84,24 @@ def test_kpi_cards_labels(silver_history_df):
     assert all(c["value"].startswith(("R$", "-R$")) for c in cards)
 
 
+def _trace_colors(trace) -> set[str]:
+    marker = getattr(trace.marker, "color", None)
+    colors = set(marker) if isinstance(marker, list | tuple) else {marker}
+    colors.add(getattr(getattr(trace, "line", None), "color", None))
+    return colors - {None}
+
+
 def test_figures_use_only_the_palette(silver_history_df):
     for fig in all_figures(build_view(silver_history_df, "All History")).values():
         for trace in fig.data:
-            colors = {
-                getattr(trace.marker, "color", None),
-                getattr(getattr(trace, "line", None), "color", None),
-            }
-            assert colors - {None} <= set(PALETTE), (trace.name, colors)
+            assert _trace_colors(trace) <= set(PALETTE), trace.name
+
+
+def test_category_bars_use_category_colors(silver_history_df):
+    figures = all_figures(build_view(silver_history_df, "All History"))
+    bar = figures["categories"].data[0]
+    assert list(bar.marker.color) == [CATEGORY_COLOR_MAP[label] for label in bar.y]
+    assert len(set(figures["merchants"].data[0].marker.color)) > 1
 
 
 def test_month_label():
