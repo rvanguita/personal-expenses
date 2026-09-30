@@ -1,7 +1,7 @@
 import pandas as pd
 import sqlalchemy
 
-from src.expenses.config import (
+from expenses.config import (
     CATEGORY_CONFIG,
     CATEGORY_LABELS,
     MYSQL_DB_BRONZE,
@@ -14,7 +14,7 @@ from src.expenses.config import (
     MYSQL_USER,
     normalize_merchant_id,
 )
-from src.expenses.runtime import cache_data, cache_resource, clear_caches, notify_error
+from expenses.runtime import cache_data, cache_resource, clear_caches, notify_error
 
 
 def ensure_databases_exist() -> None:
@@ -293,8 +293,28 @@ _BRONZE_KEY_COLS = [
 ]
 
 
+_KEY_DATE_COLS = {"date", "date_buy"}
+_KEY_NUMBER_COLS = {"cost", "installment", "total_installments"}
+
+
+def _key_part(column: str, value) -> str:
+    """One dedup-key component, independent of how the value was typed.
+
+    Rows read back from the database carry ``datetime.date`` / ``Decimal`` (MySQL DATE /
+    DECIMAL(10,2)) or plain strings, while freshly parsed rows carry ``Timestamp`` / ``float`` /
+    ``int`` — the same purchase must produce the same key either way.
+    """
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return ""
+    if column in _KEY_DATE_COLS:
+        return pd.Timestamp(value).date().isoformat()
+    if column in _KEY_NUMBER_COLS:
+        return f"{float(value):.2f}"
+    return str(value).strip()
+
+
 def _bronze_row_key(row) -> str:
-    return "_".join(str(row[c]) for c in _BRONZE_KEY_COLS)
+    return "_".join(_key_part(c, row[c]) for c in _BRONZE_KEY_COLS)
 
 
 def ingest_raw_bronze(parsed_files: list[dict], progress=None) -> dict[str, int]:
