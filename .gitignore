@@ -1,58 +1,43 @@
-# Environment & Secrets
+# Secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+.streamlit/secrets.toml
+**/.streamlit/secrets.toml
 
-# Runtime financial data and learned merchant terms
+# Financial data and learned merchant terms (never commit)
 data/categories.local.json
 data/**/*.csv
 data/**/*.tsv
 data/**/*.xlsx
 data/**/*.xls
+*.csv
 *.sqlite
 *.sqlite3
 *.db
 *.sql
 
-# Python artifacts
+# Python / build artifacts
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environments
+# Virtual environment
 .venv/
-env/
-venv/
-ENV/
 
-# Linter & Testing caches
+# Lint, test and coverage output
 .ruff_cache/
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
-.mypy_cache/
 
 # IDE & OS
-.DS_Store
-Thumbs.db
 .idea/
 .vscode/
 *.swp
+.DS_Store
+Thumbs.db

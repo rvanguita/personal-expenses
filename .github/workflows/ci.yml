@@ -30,7 +30,7 @@ jobs:
         run: uv python install 3.13
 
       - name: Install Dependencies (locked)
-        run: uv sync --all-groups --locked
+        run: uv sync --all-packages --all-groups --locked
 
       - name: Ruff Lint
         run: uv run ruff check .
@@ -38,5 +38,8 @@ jobs:
       - name: Ruff Format Check
         run: uv run ruff format --check .
 
-      - name: Pytest Suite
-        run: uv run pytest
+      - name: Pytest Suite (backend + both apps, with coverage)
+        run: >-
+          uv run pytest
+          --cov=expenses --cov=expenses_streamlit --cov=expenses_dash
+          --cov-report=term-missing:skip-covered
