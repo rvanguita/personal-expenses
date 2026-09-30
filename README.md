@@ -54,18 +54,18 @@ As camadas usam o mesmo nome de tabela, configurado por `MYSQL_TABLE`, em bancos
 
 ## Produto analítico
 
-A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e três abas de operação de dados. Todas compartilham os filtros globais de período, faturas, portador e categoria (tipo de transação, forma de pagamento e busca ficam em "More filters").
+A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e uma aba **Data** com as operações de dados. Todas compartilham os filtros de período, portador e categoria (tipo de transação, forma de pagamento e busca ficam em "More filters"; ocultar valores e recarregar dados ficam em "Display").
 
 | Aba | Pergunta respondida |
 | --- | --- |
-| Overview | Quanto foi gasto no período e onde? O que precisa de atenção agora? |
+| Overview | Quanto foi gasto, onde, quanto já está comprometido na próxima fatura e o que precisa de atenção? |
 | Trends | Os gastos estão subindo ou caindo, contra o período anterior e o ano passado? |
 | Watchlist | Quais cobranças recorrentes, compras fora do padrão e gastos sem categoria merecem revisão? |
 | Categories | O que compõe uma categoria: histórico, comerciantes e dia da semana? |
 | Reports | Quanto já está comprometido em parcelas e onde estão os dados completos para exportar? |
-| Ingest | Quais arquivos e registros serão carregados em Raw e Bronze? |
-| Categorize | Quais comerciantes foram reconhecidos e quais precisam de classificação? |
-| Manage Data | Como inspecionar, editar e deduplicar as três camadas? |
+| Data → Ingest | Quais arquivos e registros serão carregados em Raw e Bronze? |
+| Data → Categorize | Quais comerciantes foram reconhecidos e quais precisam de classificação? |
+| Data → Manage | Como inspecionar, editar e deduplicar as três camadas? |
 
 ### Regras analíticas importantes
 

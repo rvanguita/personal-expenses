@@ -20,7 +20,7 @@ from src.expenses.runtime import clear_caches
 
 def render_management_tab(df_full: pd.DataFrame, engine=None):
     """Renders the Medallion Data Lakehouse record editor, deduplication tool, and category dictionary viewer tab."""
-    st.markdown("### 🛠️ Lakehouse Data Management (Raw, Bronze, Silver)")
+    st.markdown("### Lakehouse Data Management (Raw, Bronze, Silver)")
     st.caption(
         "Inspect and manage database records across the Medallion databases or view the category dictionary."
     )
@@ -28,7 +28,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
     col_btn_dedup, col_btn_refresh = st.columns([2, 1])
     with col_btn_dedup:
         if st.button(
-            "🧹 Deduplicate All Layers (Drop Duplicate Rows)",
+            "Deduplicate All Layers (Drop Duplicate Rows)",
             type="secondary",
             width="stretch",
         ):
@@ -37,12 +37,12 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
             ):
                 dropped = deduplicate_all_layers()
                 st.success(
-                    f"✅ Deduplication completed! Dropped {dropped['raw']} in Raw, {dropped['bronze']} in Bronze, and {dropped['silver']} in Silver."
+                    f"Deduplication completed! Dropped {dropped['raw']} in Raw, {dropped['bronze']} in Bronze, and {dropped['silver']} in Silver."
                 )
                 st.rerun()
 
     with col_btn_refresh:
-        if st.button("🔄 Refresh Lakehouse Cache", width="stretch"):
+        if st.button("Refresh Lakehouse Cache", width="stretch"):
             clear_caches()
             st.rerun()
 
@@ -50,10 +50,10 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
 
     tab_silver, tab_bronze, tab_raw, tab_cat_edit = st.tabs(
         [
-            "🥈 Silver Layer (Enriched & Categorized)",
-            "🥉 Bronze Layer (Cleaned & Standardized)",
-            "🧱 Raw Layer (Exact Input Strings)",
-            "📚 Category Dictionary (JSON)",
+            "Silver Layer (Enriched & Categorized)",
+            "Bronze Layer (Cleaned & Standardized)",
+            "Raw Layer (Exact Input Strings)",
+            "Category Dictionary (JSON)",
         ]
     )
 
@@ -61,7 +61,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
     # 1. SILVER LAYER (Direct editable)
     # ------------------------------------
     with tab_silver:
-        st.markdown("#### 🥈 Silver Database Layer Editor")
+        st.markdown("#### Silver Database Layer Editor")
         st.caption(
             "This is the enriched business layer displayed in the dashboard and analytics. You can edit categories and click 'Save Changes'."
         )
@@ -107,11 +107,11 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
             col_m1, col_m2, col_m3 = st.columns(3)
             col_m1.metric("Total Silver Records", f"{len(df_silver):,}")
             col_m2.metric("Categorized", f"{len(df_silver) - unclassified_count:,}")
-            col_m3.metric("⚠️ Uncategorized (`not_found`)", f"{unclassified_count:,}")
+            col_m3.metric("Uncategorized (`not_found`)", f"{unclassified_count:,}")
 
             if unclassified_count > 0:
                 st.warning(
-                    f"📌 **{unclassified_count} uncategorized transaction(s)** (`not_found`) are displayed at the top of the table below for quick review and classification."
+                    f"**{unclassified_count} uncategorized transaction(s)** (`not_found`) are displayed at the top of the table below for quick review and classification."
                 )
 
             df_edited = st.data_editor(
@@ -137,7 +137,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                 key="silver_editor",
             )
 
-            if st.button("💾 Save Changes to Silver Layer", type="primary", key="btn_save_silver"):
+            if st.button("Save Changes to Silver Layer", type="primary", key="btn_save_silver"):
                 with st.spinner("Updating Silver table in MySQL..."):
                     # The editor hides cardholder / source file / ingest time; merge so the save
                     # (which replaces the whole table) keeps them.
@@ -153,13 +153,13 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
                 else:
                     st.error("Could not save to the Silver layer; existing records were kept.")
         else:
-            st.info("Silver table is currently empty. Ingest an invoice via the '📥 Ingest' tab.")
+            st.info("Silver table is currently empty. Ingest an invoice via the Data → Ingest tab.")
 
     # ------------------------------------
     # 2. BRONZE LAYER
     # ------------------------------------
     with tab_bronze:
-        st.markdown("#### 🥉 Bronze Database Layer Records")
+        st.markdown("#### Bronze Database Layer Records")
         st.caption(
             "Standardized transactions with numeric dot decimals, parsed dates, and English column headers."
         )
@@ -195,7 +195,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
     # 3. RAW LAYER
     # ------------------------------------
     with tab_raw:
-        st.markdown("#### 🧱 Raw Database Layer Records")
+        st.markdown("#### Raw Database Layer Records")
         st.caption(
             "Exact source lines as uploaded from credit card CSV invoices, preserving original strings and commas."
         )
@@ -215,7 +215,7 @@ def render_management_tab(df_full: pd.DataFrame, engine=None):
     # 4. CATEGORY DICTIONARY
     # ------------------------------------
     with tab_cat_edit:
-        st.markdown("#### 📖 Category Keywords & Motives Dictionary")
+        st.markdown("#### Category Keywords & Motives Dictionary")
         try:
             cat_json = load_category_dictionary()
             st.json(cat_json, expanded=False)

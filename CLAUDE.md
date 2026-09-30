@@ -141,24 +141,25 @@ existing KPIs.
 ### UI structure
 
 `main.py` wires global sidebar filters (`src/expenses/ui/sidebar.py`) applied to a `df_full` loaded from
-Silver, producing `df_filtered`, then renders 8 tabs from `src/expenses/ui/tabs/` — five analytic tabs,
-each answering **one question**, then three data-operation tabs:
+Silver, producing `df_filtered`, then renders 6 top-level tabs from `src/expenses/ui/tabs/` — five
+analytic tabs, each answering **one question**, then a **Data** tab that nests the three write paths:
 
 | Tab (module) | Question | Content |
 |---|---|---|
-| Overview (`dashboard`) | How much did I spend and where? | 4 KPIs, "Needs attention" strip, monthly-by-category chart, category + top-merchant bars |
-| Trends (`trends`) | Is spending changing? | 4 KPIs, net + 3M average, one comparison chart (previous period / last year), momentum in an expander |
+| Overview (`dashboard`) | How much did I spend and where? | 4 KPIs (net, monthly avg, latest invoice, next-month installments vs `REFERENCE_BUDGET_LIMIT`), "Needs attention" strip, monthly total + 3M average, category + top-merchant bars |
+| Trends (`trends`) | Is spending changing? | 4 KPIs, one comparison chart (previous period / last year), momentum in an expander |
 | Watchlist (`watchlist`) | What needs my attention? | Recurring charges, unusual purchases, uncategorized spending; frequency changes in an expander |
-| Categories (`category`) | What is inside one category? | 4 KPIs (total delta = 3M momentum), history, top merchants, day-of-week; detail tables in expanders |
-| Reports (`reports`) | What is committed ahead / give me the data | Executive summary, installment commitments vs limit (`REFERENCE_BUDGET_LIMIT`), invoice totals, all rows, CSV |
-| Ingest / Categorize / Manage Data (`import_tab`, `categorize_tab`, `management`) | — | Write paths into Raw/Bronze/Silver |
+| Categories (`category`) | What is inside one category? | 4 KPIs (total delta = 3M momentum), history, top merchants; day-of-week and largest transactions in expanders |
+| Reports (`reports`) | What is committed ahead / give me the data | Installment commitments vs limit, invoice totals, all rows, CSV |
+| Data → Ingest / Categorize / Manage (`import_tab`, `categorize_tab`, `management`) | — | Write paths into Raw/Bronze/Silver |
 
-Layout rules for analytic tabs (keep them when adding content): one `st.caption` stating the tab's
-purpose, **at most one row of ≤4 `st.metric(..., border=True)`** with explanations in `help=`,
+Layout rules for analytic tabs (keep them when adding content): no emojis in labels, headings or
+buttons; **at most one row of ≤4 `st.metric(..., border=True)`** with explanations in `help=`,
 charts in `st.container(border=True)` (max two per row), secondary tables in collapsed
 `st.expander`s, headings via `styles.section()`. Insight cards are reserved for things that need
 action: `insights.attention_insights()` keeps only `critical`/`warning` (max 3) for the Overview
-strip; "all good" is silent. Use `width="stretch"`, never the deprecated `use_container_width`.
+strip; "all good" is a quiet caption, and cards show no icon (severity color only). Every chart value
+axis is money: `charts.apply_chart_theme` sets `R$` ticks and no axis title. Use `width="stretch"`, never the deprecated `use_container_width`.
 
 Each tab module exposes a single `render_*_tab(...)` function imported via
 `src/expenses/ui/tabs/__init__.py`. Most tabs take `(df_filtered, df_full)`; ingestion/categorization/
@@ -171,19 +172,17 @@ meant to be used outside its module, add it there too.
 
 The shared bronze-dedup ingest loop lives in `database.ingest_raw_bronze` (used by the import tab).
 
-Two global sidebar controls sit above the filters (`src/expenses/ui/sidebar.py`), rendered even when the
-DB is empty and *not* part of the returned filter dict:
-- **🙈 Hide amounts** (`st.toggle`, `key="hide_amounts"`) — `main.py` reads the session-state flag and
+The sidebar keeps only Period, Cardholder and Categories visible (empty selection = all; the
+Invoices picker appears only for the "Custom" period). Transaction type / payment method / merchant
+search live in "More filters"; a "Display" expander holds:
+- **Hide amounts** (`st.toggle`, `key="hide_amounts"`) — `main.py` reads the session-state flag and
   calls `styles.render_amount_visibility_css()`, which injects CSS that blurs `stMetricValue` /
   `stMetricDelta` / `.insight-card-message` / `.hide-amount` (hover reveals). No change to the individual
   `st.metric` call sites.
-- **Theme toggle** (`styles.render_theme_toggle`) — rewrites `base` in `.streamlit/config.toml`,
-  mutates the in-process config via `streamlit.config`, then forces a full browser reload
-  (`components.html` + `location.reload()`) so every element repaints from the new base (Streamlit
-  can't hot-swap `[theme]` mid-session). `ui/styles.py` card / header CSS derives its colors from
-  `currentColor` (Streamlit does not expose its theme as CSS variables, so `var(--...)` only ever hits
-  the fallback) and `ui/charts.py` derives grid / tick / total-line colors from
-  `st.get_option("theme.base")` so figures track the active base.
+- **Reload data** — `runtime.clear_caches()` + rerun.
+
+The theme is fixed dark in `.streamlit/config.toml` (same palette as the Dash app; toolbar in
+`viewer` mode). `ui/charts.py` still derives grid / tick colors from `st.get_option("theme.base")`.
 
 ### Dash frontend
 
@@ -211,7 +210,7 @@ Tests are pure unit tests over DataFrame transforms (parser, analytics, `databas
 + dedup key), `config.py` helpers (currency formatting, category mappings, `normalize_merchant_id`),
 `filters.apply_filters` (`test_filters.py`), `ai_categorizer` matching / Gemini-response reshaping with
 `gemini_category` stubbed (`test_categorizer.py`), `ui/insights` selection logic (`test_insights.py`), an
-import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules with the DB entrypoints monkeypatched to raise
+import smoke that loads `main.py`, `dash_app.py` + all 8 tab modules (5 analytic + 3 data) with the DB entrypoints monkeypatched to raise
 (`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
 `streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
 `silver_history_df` fixture — no database or Gemini API calls are hit. The Dash app is covered by

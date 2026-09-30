@@ -90,7 +90,7 @@ STATUS_COLORS = {
 
 # "Current vs previous" / "highlighted vs context" emphasis pair, formalizing the accent/muted
 # convention already used ad hoc across the dashboard.
-EMPHASIS_ACCENT = "#00ACC1"
+EMPHASIS_ACCENT = "#4C9BE8"
 EMPHASIS_MUTED = "#607D8B"
 
 _LEGEND_TOP = {
@@ -128,11 +128,16 @@ def apply_chart_theme(fig: go.Figure, *, height: int = 380, legend: str = "top")
             "tickfont": {"color": axis_text},
             "automargin": True,
         },
+        # Every value axis in the app is money: R$ ticks, no axis title.
         "yaxis": {
             "gridcolor": grid,
             "tickfont": {"color": axis_text},
             "automargin": True,
+            "title": "",
+            "tickprefix": "R$ ",
+            "tickformat": ",.0f",
         },
+        "separators": ".,",
     }
     if legend == "top":
         layout["legend"] = _LEGEND_TOP
@@ -180,11 +185,6 @@ def add_total_line_trace(
     return fig
 
 
-def build_emphasis_bar_colors(labels: list[str], highlight_label: str | None) -> list[str]:
-    """Flat color list: accent for the highlighted label (e.g. the peak day), muted gray for the rest."""
-    return [EMPHASIS_ACCENT if lbl == highlight_label else EMPHASIS_MUTED for lbl in labels]
-
-
 def build_ranked_bar_chart(
     df: pd.DataFrame,
     label_col: str,
@@ -229,13 +229,8 @@ def build_ranked_bar_chart(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": axis_text},
-        xaxis={
-            "range": [0, max_val * 1.25],
-            "title": "",
-            "automargin": True,
-            "gridcolor": grid_color(),
-            "tickfont": {"color": axis_text},
-        },
+        # Value labels sit on the bars, so the value axis is redundant.
+        xaxis={"range": [0, max_val * 1.25], "visible": False},
         yaxis={"title": "", "automargin": True, "tickfont": {"color": axis_text}},
     )
     return fig

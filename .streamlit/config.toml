@@ -3,13 +3,18 @@ port = 8503
 address = "0.0.0.0"
 headless = true
 
+[client]
+toolbarMode = "viewer"
+
 [browser]
 gatherUsageStats = false
 
-# `base` is flipped at runtime by the sidebar theme toggle (ui/styles.render_theme_toggle).
-# Background / text colors are intentionally left to Streamlit's built-in light & dark palettes
-# so the toggle only has to change this one key; primaryColor works on both.
+# Fixed dark theme (matches the Dash dashboard's palette).
 [theme]
 base = "dark"
-primaryColor = "#00ACC1"
+primaryColor = "#4C9BE8"
+backgroundColor = "#0F1117"
+secondaryBackgroundColor = "#161A23"
+textColor = "#E5E7EB"
+borderColor = "#262B36"
 font = "sans serif"

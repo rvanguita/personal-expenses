@@ -43,7 +43,7 @@ def main():
 
     if df_full.empty:
         st.warning(
-            "No data found in the database. Use the **Ingest** tab to upload your first invoice."
+            "No data found in the database. Use **Data → Ingest** to upload your first invoice."
         )
 
     # Sidebar global filters
@@ -55,27 +55,9 @@ def main():
     # Applying filters (src.expenses.filters.apply_filters)
     df_filtered = apply_filters(df_full, filters)
 
-    # Main navigation tabs: analysis first (one question each), then data operations
-    (
-        tab_overview,
-        tab_trends,
-        tab_watchlist,
-        tab_categories,
-        tab_reports,
-        tab_ingest,
-        tab_categorize,
-        tab_manage,
-    ) = st.tabs(
-        [
-            "📊 Overview",
-            "📈 Trends",
-            "🔔 Watchlist",
-            "🔍 Categories",
-            "📑 Reports",
-            "📥 Ingest",
-            "🏷️ Categorize",
-            "🛠️ Manage Data",
-        ]
+    # Analysis first (one question per tab), then every write path grouped under "Data"
+    tab_overview, tab_trends, tab_watchlist, tab_categories, tab_reports, tab_data = st.tabs(
+        ["Overview", "Trends", "Watchlist", "Categories", "Reports", "Data"]
     )
 
     with tab_overview:
@@ -93,14 +75,14 @@ def main():
     with tab_reports:
         render_reports_tab(df_filtered, df_full)
 
-    with tab_ingest:
-        render_import_tab(engine)
-
-    with tab_categorize:
-        render_categorize_tab(engine)
-
-    with tab_manage:
-        render_management_tab(df_full, engine)
+    with tab_data:
+        tab_ingest, tab_categorize, tab_manage = st.tabs(["Ingest", "Categorize", "Manage"])
+        with tab_ingest:
+            render_import_tab(engine)
+        with tab_categorize:
+            render_categorize_tab(engine)
+        with tab_manage:
+            render_management_tab(df_full, engine)
 
 
 if __name__ == "__main__":

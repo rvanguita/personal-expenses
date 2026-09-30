@@ -10,7 +10,6 @@ from src.expenses.filters import (
     resolve_default_months,
 )
 from src.expenses.runtime import clear_caches
-from src.expenses.ui.styles import render_theme_toggle
 
 
 def render_sidebar(df_full: pd.DataFrame) -> dict:
@@ -18,36 +17,22 @@ def render_sidebar(df_full: pd.DataFrame) -> dict:
     with st.sidebar:
         st.markdown("### Filters")
 
-        # Global display controls — always shown, not part of the returned filter dict.
-        render_theme_toggle()
-        st.toggle(
-            "🙈 Hide amounts",
-            key="hide_amounts",
-            help="Blur every monetary figure on screen; hover a value to reveal it.",
-        )
-        st.divider()
-
         if not df_full.empty:
             all_year_months = sorted(df_full["year_month"].unique().tolist(), reverse=True)
 
-            # Predefined Period Filter
             period_option = st.selectbox("Period", options=PERIOD_OPTIONS, index=0)
-            default_months = resolve_default_months(period_option, all_year_months)
-
-            selected_months = st.multiselect(
-                "Invoices",
-                options=all_year_months,
-                default=default_months,
-            )
+            selected_months = resolve_default_months(period_option, all_year_months)
+            if period_option == "Custom":
+                selected_months = st.multiselect(
+                    "Invoices", options=all_year_months, default=selected_months
+                )
 
             # Cardholder Filter (Portador)
             all_holders = sorted([h for h in df_full["source_debt"].unique() if h])
             selected_holders = []
             if all_holders:
                 selected_holders = st.multiselect(
-                    "Cardholder",
-                    options=all_holders,
-                    default=all_holders,
+                    "Cardholder", options=all_holders, placeholder="All cardholders"
                 )
 
             # Category Filter
@@ -56,20 +41,8 @@ def render_sidebar(df_full: pd.DataFrame) -> dict:
                 for cat in sorted(df_full["category"].unique())
                 if cat in CATEGORY_CONFIG
             ]
-
-            col_btn1, col_btn2 = st.columns(2)
-            if col_btn1.button("Select all", type="tertiary", width="stretch"):
-                st.session_state["selected_cats"] = all_cat_labels
-            if col_btn2.button("Clear all", type="tertiary", width="stretch"):
-                st.session_state["selected_cats"] = []
-
-            if "selected_cats" not in st.session_state:
-                st.session_state["selected_cats"] = all_cat_labels
-
             selected_cat_labels = st.multiselect(
-                "Categories",
-                options=all_cat_labels,
-                default=[c for c in st.session_state["selected_cats"] if c in all_cat_labels],
+                "Categories", options=all_cat_labels, placeholder="All categories"
             )
             selected_categories = [
                 LABEL_TO_CAT[cat_lbl] for cat_lbl in selected_cat_labels if cat_lbl in LABEL_TO_CAT
@@ -90,12 +63,17 @@ def render_sidebar(df_full: pd.DataFrame) -> dict:
                     "Search merchant", placeholder="E.g.: Example Market, Demo Transit..."
                 )
 
-            st.divider()
-            if st.button("🔄 Refresh / Clear Cache", width="stretch"):
-                clear_caches()
-                st.rerun()
+            with st.expander("Display"):
+                st.toggle(
+                    "Hide amounts",
+                    key="hide_amounts",
+                    help="Blur every monetary figure on screen; hover a value to reveal it.",
+                )
+                if st.button("Reload data", width="stretch"):
+                    clear_caches()
+                    st.rerun()
 
-            st.caption(f"Total database records: **{len(df_full):,}** transactions")
+            st.caption(f"{len(df_full):,} transactions in the database")
             return {
                 "selected_months": selected_months,
                 "selected_holders": selected_holders,

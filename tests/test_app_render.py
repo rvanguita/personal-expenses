@@ -14,14 +14,15 @@ from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
 MAIN_SCRIPT = str(Path(__file__).resolve().parents[1] / "main.py")
 
 EXPECTED_TABS = [
-    "📊 Overview",
-    "📈 Trends",
-    "🔔 Watchlist",
-    "🔍 Categories",
-    "📑 Reports",
-    "📥 Ingest",
-    "🏷️ Categorize",
-    "🛠️ Manage Data",
+    "Overview",
+    "Trends",
+    "Watchlist",
+    "Categories",
+    "Reports",
+    "Data",
+    "Ingest",
+    "Categorize",
+    "Manage",
 ]
 
 SILVER_LAYER_COLUMNS = [

@@ -10,10 +10,10 @@ from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
 
 def render_import_tab(engine=None):
     """Renders the Batch Invoice Ingestion tab (Raw & Bronze layer persistence)."""
-    st.markdown("### 📥 Invoice Ingestion (Raw & Bronze Layers)")
+    st.markdown("### Invoice Ingestion (Raw & Bronze Layers)")
     st.caption(
         "Upload one or multiple credit card CSV invoices at once. Ingested files are stored identically in the **Raw** database "
-        "and transformed with standardized schema into the **Bronze** database. Categorization is performed in the dedicated **🏷️ AI Categorization** tab."
+        "and transformed with standardized schema into the **Bronze** database. Categorization is performed in the dedicated **AI Categorization** tab."
     )
 
     col_u1, col_u2 = st.columns([3, 2])
@@ -33,7 +33,7 @@ def render_import_tab(engine=None):
 
     if uploaded_files:
         st.write("")
-        st.markdown(f"#### 📑 Uploaded Files Overview ({len(uploaded_files)} file(s) selected)")
+        st.markdown(f"#### Uploaded Files Overview ({len(uploaded_files)} file(s) selected)")
 
         parsed_files = []
         all_raw_dfs = []
@@ -71,10 +71,10 @@ def render_import_tab(engine=None):
 
             # Global batch KPI metrics
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("📁 Selected Files", f"{len(parsed_files):,}")
-            m2.metric("🧾 Total Transactions", f"{total_all_tx:,}")
-            m3.metric("💳 Gross Purchases", format_currency_br(total_all_gross))
-            m4.metric("💰 Net Total", format_currency_br(total_all_net))
+            m1.metric("Selected Files", f"{len(parsed_files):,}")
+            m2.metric("Total Transactions", f"{total_all_tx:,}")
+            m3.metric("Gross Purchases", format_currency_br(total_all_gross))
+            m4.metric("Net Total", format_currency_br(total_all_net))
 
             # Batch Summary Table
             df_summary_table = pd.DataFrame(
@@ -85,7 +85,7 @@ def render_import_tab(engine=None):
                         "Transactions": p["transactions"],
                         "Gross Purchases": p["gross_spent"],
                         "Net Invoice Total": p["net_total"],
-                        "Status": "✅ Ready to Ingest",
+                        "Status": "Ready to Ingest",
                     }
                     for p in parsed_files
                 ]
@@ -109,7 +109,7 @@ def render_import_tab(engine=None):
             )
 
             # Preview Expander for Data Inspection
-            with st.expander("🔍 **Inspect Raw & Bronze Previews**", expanded=False):
+            with st.expander("**Inspect Raw & Bronze Previews**", expanded=False):
                 file_names = [p["filename"] for p in parsed_files]
                 selected_preview_file = st.selectbox(
                     "Select file to preview:",
@@ -122,11 +122,11 @@ def render_import_tab(engine=None):
 
                 col_prev1, col_prev2 = st.columns(2)
                 with col_prev1:
-                    st.markdown("##### 🧱 Raw Layer Preview")
+                    st.markdown("##### Raw Layer Preview")
                     st.dataframe(chosen_parsed["df_raw"].head(5), width="stretch", hide_index=True)
 
                 with col_prev2:
-                    st.markdown("##### 🥉 Bronze Layer Preview")
+                    st.markdown("##### Bronze Layer Preview")
                     df_bronze_disp = chosen_parsed["df_bronze"].head(5).copy()
                     df_bronze_disp["date"] = pd.to_datetime(df_bronze_disp["date"])
                     df_bronze_disp["date_buy"] = pd.to_datetime(df_bronze_disp["date_buy"])
@@ -157,9 +157,9 @@ def render_import_tab(engine=None):
 
             # Action Button to Ingest all files into Raw and Bronze
             btn_label = (
-                f"💾 Ingest All {len(parsed_files)} Invoices into Raw & Bronze Layers"
+                f"Ingest All {len(parsed_files)} Invoices into Raw & Bronze Layers"
                 if len(parsed_files) > 1
-                else "💾 Ingest Invoice into Raw & Bronze Layers"
+                else "Ingest Invoice into Raw & Bronze Layers"
             )
 
             if st.button(btn_label, type="primary", width="stretch"):
@@ -175,12 +175,12 @@ def render_import_tab(engine=None):
                 progress_bar.progress(100, text="Batch ingestion completed!")
 
                 st.success(
-                    f"🎉 Successfully ingested **{len(parsed_files)}** invoice file(s)!\n\n"
+                    f"Successfully ingested **{len(parsed_files)}** invoice file(s)!\n\n"
                     f"- **Raw Layer**: Added **{res['raw_inserted']:,}** lines.\n"
                     f"- **Bronze Layer**: Added **{res['bronze_inserted']:,}** new transactions "
                     f"(Skipped {res['bronze_skipped']} duplicates).\n\n"
-                    f"👉 Head over to the **🏷️ Categorize** tab to categorize "
+                    f"Head over to the **Categorize** tab to categorize "
                     f"new transactions."
                 )
-                if st.button("🔄 Refresh Data View"):
+                if st.button("Refresh Data View"):
                     st.rerun()

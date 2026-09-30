@@ -11,8 +11,7 @@ from src.expenses.analytics import (
 )
 from src.expenses.config import REFERENCE_BUDGET_LIMIT, format_currency_br
 from src.expenses.ui.figures import build_budget_vs_limit_figure, build_future_by_category_figure
-from src.expenses.ui.insights import executive_summary_insight
-from src.expenses.ui.styles import render_insight, section
+from src.expenses.ui.styles import section
 
 _MONEY = st.column_config.NumberColumn(format="R$ %.2f")
 _DATE = st.column_config.DateColumn(format="YYYY-MM-DD")
@@ -173,7 +172,6 @@ def _render_export(df_filtered: pd.DataFrame, df_expenses: pd.DataFrame) -> None
     df_filtered.to_csv(csv_buffer, index=False, sep=";", encoding="utf-8-sig")
     st.download_button(
         label="Download CSV",
-        icon="📥",
         data=csv_buffer.getvalue(),
         file_name=f"expenses_report_{datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv",
@@ -181,13 +179,11 @@ def _render_export(df_filtered: pd.DataFrame, df_expenses: pd.DataFrame) -> None
 
 
 def render_reports_tab(df_filtered: pd.DataFrame, df_full: pd.DataFrame):
-    """Reports: executive summary, future installment commitments and data export."""
+    """Reports: future installment commitments and data export."""
     if df_filtered.empty:
         st.info("No data selected to generate report.")
         return
 
     df_expenses = df_filtered[~df_filtered["is_payment"]].copy()
-    st.caption("Executive summary, upcoming installment commitments and data export.")
-    render_insight(executive_summary_insight(df_expenses))
     _render_commitments(df_full)
     _render_export(df_filtered, df_expenses)
