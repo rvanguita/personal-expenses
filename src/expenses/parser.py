@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 
 import pandas as pd
 
-from src.expenses.runtime import notify_error
+from expenses.runtime import notify_error
 
 
 def parse_raw_csv(file_obj, fallback_date: date | None = None) -> pd.DataFrame:
@@ -179,9 +179,3 @@ def transform_raw_to_bronze(df_raw: pd.DataFrame) -> pd.DataFrame:
             "source_file",
         ]
     ].dropna(subset=["id"])
-
-
-def parse_expense_csv(file_obj, fallback_date: date | None = None) -> pd.DataFrame:
-    """Convenience pipeline: parses CSV directly to Bronze schema."""
-    df_raw = parse_raw_csv(file_obj, fallback_date)
-    return transform_raw_to_bronze(df_raw)

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.expenses.filters import (
+from expenses.filters import (
     DEFAULT_FILTERS,
     TX_ALL,
     TX_GROSS,

@@ -1,26 +1,39 @@
+# Build context is the repo root for both app images; send only what the Dockerfiles COPY.
+
+# VCS, CI and docs for developers
 .git
-.gitignore
 .github
+CLAUDE.md
+
+# Local environments and caches
 .venv
 __pycache__
 *.py[cod]
-*$py.class
-*.so
 .ruff_cache
 .pytest_cache
 .coverage
+coverage.xml
 htmlcov/
-tests/
+
+# Tests (not shipped in images)
+**/tests/
+conftest.py
+
+# Secrets and financial data (never baked into an image; docs/data/ is mounted at runtime)
 .env
 .env.*
-data/categories.local.json
-data/**/*.csv
-data/**/*.tsv
-data/**/*.xlsx
-data/**/*.xls
+.streamlit/secrets.toml
+**/.streamlit/secrets.toml
+docs/data/categories.local.json
+docs/data/**/*.csv
+docs/data/**/*.tsv
+docs/data/**/*.xlsx
+docs/data/**/*.xls
 *.sqlite
 *.sqlite3
 *.db
 *.sql
+
+# Editors / OS
 *.swp
 .DS_Store

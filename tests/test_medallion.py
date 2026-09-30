@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.expenses.ai_categorizer import match_merchants_with_history
+from expenses.ai_categorizer import match_merchants_with_history
 
 
 def test_match_merchants_with_history_dictionary():
@@ -27,7 +27,7 @@ def test_match_merchants_with_history_dictionary():
 
 
 def test_batch_gemini_categorize_unmatched_empty():
-    from src.expenses.ai_categorizer import batch_gemini_categorize_unmatched
+    from expenses.ai_categorizer import batch_gemini_categorize_unmatched
 
     df_empty = pd.DataFrame(columns=["id"])
     res = batch_gemini_categorize_unmatched(df_empty, batch_size=25)
@@ -35,7 +35,7 @@ def test_batch_gemini_categorize_unmatched_empty():
 
 
 def test_batch_gemini_categorize_unmatched_callback(monkeypatch):
-    from src.expenses.ai_categorizer import batch_gemini_categorize_unmatched
+    from expenses.ai_categorizer import batch_gemini_categorize_unmatched
 
     # Mock single batch function
     def mock_gemini_cat(df):
@@ -51,7 +51,7 @@ def test_batch_gemini_categorize_unmatched_callback(monkeypatch):
             ]
         )
 
-    monkeypatch.setattr("src.expenses.ai_categorizer.gemini_categorize_unmatched", mock_gemini_cat)
+    monkeypatch.setattr("expenses.ai_categorizer.gemini_categorize_unmatched", mock_gemini_cat)
 
     df_many = pd.DataFrame([{"id": f"MERCHANT_{i}"} for i in range(60)])
     callbacks_received = []
@@ -67,16 +67,16 @@ def test_batch_gemini_categorize_unmatched_callback(monkeypatch):
 
 
 def test_repopulate_silver_layer_empty(monkeypatch):
-    from src.expenses.ai_categorizer import repopulate_silver_layer
+    from expenses.ai_categorizer import repopulate_silver_layer
 
-    monkeypatch.setattr("src.expenses.ai_categorizer.load_bronze_data", lambda: pd.DataFrame())
+    monkeypatch.setattr("expenses.ai_categorizer.load_bronze_data", lambda: pd.DataFrame())
     res = repopulate_silver_layer(batch_size=25)
     assert res["status"] == "empty"
     assert res["silver_count"] == 0
 
 
 def test_save_dataframe_replace_noop():
-    from src.expenses.database import save_dataframe_replace
+    from expenses.database import save_dataframe_replace
 
     # Engine is None should safely return without exception
     save_dataframe_replace(pd.DataFrame(), engine=None)

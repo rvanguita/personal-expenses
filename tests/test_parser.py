@@ -2,7 +2,7 @@ import io
 
 import pandas as pd
 
-from src.expenses.parser import parse_expense_csv, parse_raw_csv, transform_raw_to_bronze
+from expenses.parser import parse_raw_csv, transform_raw_to_bronze
 
 
 def _csv_file(text: str, name: str = "Invoice2026-01-05.csv") -> io.StringIO:
@@ -36,31 +36,6 @@ def test_transform_raw_to_bronze(sample_csv_file):
     assert "total_installments" in df_bronze.columns
     assert "source_file" in df_bronze.columns
     assert df_bronze["cost"].dtype == float
-
-
-def test_parse_expense_csv(sample_csv_file):
-    df = parse_expense_csv(sample_csv_file)
-    assert not df.empty
-    assert len(df) == 5
-    assert "date" in df.columns
-    assert "date_buy" in df.columns
-    assert "id" in df.columns
-    assert "cost" in df.columns
-    assert "installment" in df.columns
-    assert "total_installments" in df.columns
-
-    # Check invoice date extracted from filename
-    assert df["date"].iloc[0] == pd.Timestamp("2026-01-05")
-
-    # Check installment parsing
-    installment_row = df[df["id"] == "DEMO STORE"].iloc[0]
-    assert installment_row["installment"] == 1
-    assert installment_row["total_installments"] == 3
-    assert installment_row["cost"] == 1200.00
-
-    # Check negative cost handling (payment/refund)
-    payment_row = df[df["id"] == "PAGAMENTO FATURA"].iloc[0]
-    assert payment_row["cost"] == -1500.00
 
 
 def test_portuguese_invoice_csv():
@@ -142,7 +117,7 @@ def test_filename_without_date_still_parses():
         "Data;Estabelecimento;Portador;Valor;Parcela\n01/12/2025;EXAMPLE STORE;CARDHOLDER_A;R$ 9,99;-\n",
         name="extrato.csv",
     )
-    df = parse_expense_csv(f)
+    df = transform_raw_to_bronze(parse_raw_csv(f))
     assert len(df) == 1
     assert pd.notna(df["date"].iloc[0])
 
