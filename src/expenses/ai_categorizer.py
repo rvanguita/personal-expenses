@@ -1,28 +1,26 @@
 import json
 import re
-from pathlib import Path
 
 import pandas as pd
 import sqlalchemy
 
-from src.expenses.config import (
+from expenses.config import (
     CATEGORY_CONFIG,
-    MYSQL_DB_BRONZE,
-    MYSQL_DB_RAW,
     MYSQL_DB_SILVER,
     MYSQL_TABLE,
+    PROMPT_TEMPLATE_PATH,
     load_category_dictionary,
     read_file,
     save_local_category_dictionary,
 )
-from src.expenses.database import (
+from expenses.database import (
     create_medallion_tables,
     get_db_engine,
     load_bronze_data,
     save_dataframe_replace,
 )
-from src.expenses.runtime import clear_caches, notify_error, notify_warning
-from src.gemini import gemini_category
+from expenses.gemini import gemini_category
+from expenses.runtime import clear_caches, notify_error, notify_warning
 
 
 def match_merchants_with_history(
@@ -124,7 +122,7 @@ def gemini_categorize_unmatched(df_unmatched: pd.DataFrame) -> pd.DataFrame:
     if df_unmatched.empty or "id" not in df_unmatched.columns:
         return pd.DataFrame(columns=["id", "category", "motivation", "categorized_by"])
 
-    path_prompt = Path("template/prompt.md")
+    path_prompt = PROMPT_TEMPLATE_PATH
     categories = load_category_dictionary()
 
     try:
@@ -204,161 +202,6 @@ def batch_gemini_categorize_unmatched(
     if batch_results:
         return pd.concat(batch_results, ignore_index=True)
     return pd.DataFrame(columns=["id", "category", "motivation", "categorized_by"])
-
-
-def gemini_categorize_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Legacy helper maintained for backward compatibility."""
-    return gemini_categorize_unmatched(df)
-
-
-def save_medallion_pipeline(
-    df_raw: pd.DataFrame,
-    df_bronze: pd.DataFrame,
-    df_silver_reviewed: pd.DataFrame,
-    engine=None,
-) -> dict:
-    """Sequentially persists records into RAW, BRONZE, and SILVER database layers with deduplication."""
-    create_medallion_tables()
-    engine_raw = get_db_engine(MYSQL_DB_RAW)
-    engine_bronze = get_db_engine(MYSQL_DB_BRONZE)
-    engine_silver = get_db_engine(MYSQL_DB_SILVER)
-
-    # 1. Update Category Dictionary with newly confirmed categories/motivations
-    categories = load_category_dictionary()
-
-    if "motivation" in df_silver_reviewed.columns and "category" in df_silver_reviewed.columns:
-        new_categories = (
-            df_silver_reviewed.groupby("category")["motivation"]
-            .apply(lambda x: x.dropna().drop_duplicates().tolist())
-            .to_dict()
-        )
-        for category, motivations in new_categories.items():
-            categories.setdefault(category, [])
-            for motivation in motivations:
-                if (
-                    motivation
-                    and motivation != "not_found"
-                    and motivation not in categories[category]
-                ):
-                    categories[category].append(motivation)
-
-        save_local_category_dictionary(categories)
-
-    # 2. Persist RAW Layer (Exact copy as input into raw database)
-    raw_inserted = 0
-    if not df_raw.empty and engine_raw is not None:
-        try:
-            df_raw.to_sql(MYSQL_TABLE, con=engine_raw, if_exists="append", index=False)
-            raw_inserted = len(df_raw)
-        except Exception as e:  # noqa: BLE001
-            notify_error(f"Error saving to Raw database: {e}")
-
-    # 3. Persist BRONZE Layer (Cleaned & Standardized into bronze database)
-    bronze_inserted = 0
-    bronze_duplicates = 0
-    if not df_bronze.empty and engine_bronze is not None:
-        try:
-            with engine_bronze.connect() as conn:
-                existing_bronze = pd.read_sql(
-                    sqlalchemy.text(
-                        f"SELECT date, date_buy, id, cost, installment FROM {MYSQL_TABLE}"
-                    ),
-                    conn,
-                )
-            if not existing_bronze.empty:
-                existing_bronze["key"] = (
-                    existing_bronze["date"].astype(str)
-                    + "_"
-                    + existing_bronze["date_buy"].astype(str)
-                    + "_"
-                    + existing_bronze["id"].astype(str)
-                    + "_"
-                    + existing_bronze["cost"].astype(str)
-                    + "_"
-                    + existing_bronze["installment"].astype(str)
-                )
-                df_bronze_check = df_bronze.copy()
-                df_bronze_check["key"] = (
-                    df_bronze_check["date"].astype(str)
-                    + "_"
-                    + df_bronze_check["date_buy"].astype(str)
-                    + "_"
-                    + df_bronze_check["id"].astype(str)
-                    + "_"
-                    + df_bronze_check["cost"].astype(str)
-                    + "_"
-                    + df_bronze_check["installment"].astype(str)
-                )
-                new_bronze = df_bronze_check[
-                    ~df_bronze_check["key"].isin(existing_bronze["key"])
-                ].drop(columns=["key"], errors="ignore")
-            else:
-                new_bronze = df_bronze
-
-            bronze_inserted = len(new_bronze)
-            bronze_duplicates = len(df_bronze) - bronze_inserted
-            if bronze_inserted > 0:
-                new_bronze.to_sql(MYSQL_TABLE, con=engine_bronze, if_exists="append", index=False)
-        except Exception as e:  # noqa: BLE001
-            notify_error(f"Error saving to Bronze database: {e}")
-
-    # 4. Persist SILVER Layer (Enriched & Categorized into silver database)
-    silver_inserted = 0
-    silver_duplicates = 0
-    if not df_silver_reviewed.empty and engine_silver is not None:
-        try:
-            with engine_silver.connect() as conn:
-                existing_silver = pd.read_sql(
-                    sqlalchemy.text(
-                        f"SELECT date, date_buy, id, cost, installment FROM {MYSQL_TABLE}"
-                    ),
-                    conn,
-                )
-            if not existing_silver.empty:
-                existing_silver["key"] = (
-                    existing_silver["date"].astype(str)
-                    + "_"
-                    + existing_silver["date_buy"].astype(str)
-                    + "_"
-                    + existing_silver["id"].astype(str)
-                    + "_"
-                    + existing_silver["cost"].astype(str)
-                    + "_"
-                    + existing_silver["installment"].astype(str)
-                )
-                df_silver_check = df_silver_reviewed.copy()
-                df_silver_check["key"] = (
-                    df_silver_check["date"].astype(str)
-                    + "_"
-                    + df_silver_check["date_buy"].astype(str)
-                    + "_"
-                    + df_silver_check["id"].astype(str)
-                    + "_"
-                    + df_silver_check["cost"].astype(str)
-                    + "_"
-                    + df_silver_check["installment"].astype(str)
-                )
-                new_silver = df_silver_check[
-                    ~df_silver_check["key"].isin(existing_silver["key"])
-                ].drop(columns=["key"], errors="ignore")
-            else:
-                new_silver = df_silver_reviewed
-
-            silver_inserted = len(new_silver)
-            silver_duplicates = len(df_silver_reviewed) - silver_inserted
-            if silver_inserted > 0:
-                new_silver.to_sql(MYSQL_TABLE, con=engine_silver, if_exists="append", index=False)
-                clear_caches()
-        except Exception as e:  # noqa: BLE001
-            notify_error(f"Error saving to Silver database: {e}")
-
-    return {
-        "raw_inserted": raw_inserted,
-        "bronze_inserted": bronze_inserted,
-        "bronze_duplicates": bronze_duplicates,
-        "silver_inserted": silver_inserted,
-        "silver_duplicates": silver_duplicates,
-    }
 
 
 def repopulate_silver_layer(batch_size: int = 25, progress_callback=None) -> dict:
@@ -464,17 +307,3 @@ def repopulate_silver_layer(batch_size: int = 25, progress_callback=None) -> dic
         "silver_count": len(df_silver_latest),
         "df_silver": df_silver_latest,
     }
-
-
-def save_categorized_expenses(
-    df_raw: pd.DataFrame, df_resp: pd.DataFrame, engine=None
-) -> tuple[int, int]:
-    """Legacy helper maintained for backward compatibility."""
-    df_bronze = df_raw.copy() if "date" in df_raw.columns else df_raw
-    df_silver_reviewed = pd.merge(
-        df_bronze, df_resp[["id", "category", "motivation"]], on="id", how="left"
-    )
-    df_silver_reviewed["category"] = df_silver_reviewed["category"].fillna("not_found")
-    df_silver_reviewed["categorized_by"] = "legacy"
-    res = save_medallion_pipeline(pd.DataFrame(), df_bronze, df_silver_reviewed, engine)
-    return res["silver_inserted"], res["silver_duplicates"]
