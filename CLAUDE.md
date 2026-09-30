@@ -8,11 +8,18 @@ Web app for ingesting, categorizing (via Google Gemini AI), and analyzing person
 expenses, backed by a MySQL **Medallion Architecture** (Raw → Bronze → Silver). Package/dependency
 management is via `uv`.
 
-**One frontend:** `main.py` — **Streamlit** app (`src/expenses/ui/`), port `8503`. It consumes
-`analytics.py` + `config.py` + `filters.apply_filters` and the framework-agnostic
-`ui/charts.py` (theme/hide-amounts via `chart_context`), `ui/figures.py` (figure builders) and
-`ui/insights.py` (`Insight` cards). **Add new charts/insights to `figures.py` / `insights.py`, not
-inline in a tab.** `charts.py`, `figures.py`, `insights.py` must not import Streamlit at module level.
+**Two frontends, one dashboard:**
+- `main.py` — **Streamlit** (`src/expenses/ui/`), port `8503`, two pages via `st.navigation`:
+  **Dashboard** (`ui/dashboard_page.py`) and **Dados** (`ui/data_page.py`, the write paths).
+- `dash_app.py` — **Dash**, port `DASH_PORT` (default `8050`), the same dashboard read-only;
+  styles in `assets/dashboard.css`.
+
+Both render the framework-agnostic layer in `src/expenses/dashboard/`: `data.build_view(df_full,
+period, holders, categories) -> DashboardView` (only calls `analytics.py` / `filters.py`),
+`data.kpi_cards(view)`, `figures.py` (Plotly builders) and `theme.py` (design tokens). **Add new
+numbers to `build_view` and new charts to `dashboard/figures.py`, then render them in both
+frontends.** `src/expenses/dashboard/` must never import Streamlit or Dash (enforced by
+`tests/test_app_imports.py`).
 
 The former Streamlit coupling in `database.py` / `parser.py` / `ai_categorizer.py` lives behind
 `src/expenses/runtime.py` (`cache_data`, `cache_resource`, `clear_caches`, `notify_error`,
@@ -28,6 +35,9 @@ uv sync --all-groups
 # Run the Streamlit app (port 8503, from .env STREAMLIT_PORT)
 uv run streamlit run main.py
 
+# Run the Dash app (port 8050, from .env DASH_PORT)
+uv run python dash_app.py
+
 # Run all tests
 uv run pytest
 
@@ -39,7 +49,7 @@ uv run pytest tests/test_analytics.py::test_calculate_kpis_basic
 uv run ruff check .
 uv run ruff format .            # CI runs `ruff format --check .`
 
-# Docker Compose (single `streamlit` service = :8503)
+# Docker Compose (`streamlit` = :8503, `dash` = :8050, same image)
 docker compose up --build -d
 docker compose logs -f streamlit
 # After renaming/removing a service, drop the old fixed-name container once:
@@ -54,7 +64,7 @@ CI (`.github/workflows/ci.yml`) runs on **every branch push**, **every PR**, and
 Environment variables live in `.env` (see `.env.example`): `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`,
 `MYSQL_PASSWORD`, `MYSQL_TABLE` (unified table name across all three DBs), `MYSQL_DB_RAW`,
 `MYSQL_DB_BRONZE`, `MYSQL_DB_SILVER`, `GEMINI_API_KEY`, `GEMINI_MODEL`,
-`REFERENCE_BUDGET_LIMIT`, `CATEGORY_LOCAL_PATH`, `STREAMLIT_PORT`.
+`REFERENCE_BUDGET_LIMIT`, `CATEGORY_LOCAL_PATH`, `STREAMLIT_PORT`, `DASH_PORT`.
 Tests do not require a live MySQL/Gemini connection — they exercise pure data-transform functions.
 **Do not run ad-hoc scripts that call `database.py` write helpers** (`ingest_raw_bronze`,
 `save_dataframe_replace`, `repopulate_silver_layer`, `deduplicate_all_layers`): if `.env` points at a
@@ -134,30 +144,28 @@ existing KPIs.
 
 ### UI structure
 
-`main.py` wires global sidebar filters (`src/expenses/ui/sidebar.py`) applied to a `df_full` loaded from
-Silver, producing `df_filtered`, then renders 8 tabs from `src/expenses/ui/tabs/` — five analytic tabs,
-each answering **one question**, then three data-operation tabs:
+The dashboard answers one question — *how much did I spend, where, and what is already
+committed?* — with the same layout in both frontends:
 
-| Tab (module) | Question | Content |
-|---|---|---|
-| Overview (`dashboard`) | How much did I spend and where? | 4 KPIs, "Needs attention" strip, monthly-by-category chart, category + top-merchant bars |
-| Trends (`trends`) | Is spending changing? | 4 KPIs, net + 3M average, one comparison chart (previous period / last year), momentum in an expander |
-| Watchlist (`watchlist`) | What needs my attention? | Recurring charges, unusual purchases, uncategorized spending; frequency changes in an expander |
-| Categories (`category`) | What is inside one category? | 4 KPIs (total delta = 3M momentum), history, top merchants, day-of-week; detail tables in expanders |
-| Reports (`reports`) | What is committed ahead / give me the data | Executive summary, installment commitments vs limit (`REFERENCE_BUDGET_LIMIT`), invoice totals, all rows, CSV |
-| Ingest / Categorize / Manage Data (`import_tab`, `categorize_tab`, `management`) | — | Write paths into Raw/Bronze/Silver |
+1. Header ("Despesas" + active period + last invoice date) and one row of filters: period
+   (`data.PERIOD_LABELS`, resolved via `filters.resolve_default_months`), card holder, category.
+   Other filter dimensions stay at `filters.DEFAULT_FILTERS` (net expenses).
+2. Four KPIs from `kpi_cards`: spent in period, monthly average, last invoice vs previous,
+   next-month installments vs `REFERENCE_BUDGET_LIMIT`. Future commitments use the holder/category
+   scope but ignore the period.
+3. Monthly evolution (bars + dashed 3M average), full width.
+4. Category ranking | top 10 merchants (horizontal bars).
+5. Future installments per month | largest purchases table.
 
-Layout rules for analytic tabs (keep them when adding content): one `st.caption` stating the tab's
-purpose, **at most one row of ≤4 `st.metric(..., border=True)`** with explanations in `help=`,
-charts in `st.container(border=True)` (max two per row), secondary tables in collapsed
-`st.expander`s, headings via `styles.section()`. Insight cards are reserved for things that need
-action: `insights.attention_insights()` keeps only `critical`/`warning` (max 3) for the Overview
-strip; "all good" is silent. Use `width="stretch"`, never the deprecated `use_container_width`.
+Visual rules: **monochrome** — only `theme.ACCENT` (`#1F4E79`) and `theme.ACCENT_LIGHT` in figures
+(tested), neutral greys for text/grid, no per-category colours, no red/green deltas (Streamlit
+metrics use `delta_color="off"`). Fixed light theme (`.streamlit/config.toml` mirrors the tokens;
+`assets/dashboard.css` mirrors them for Dash). UI text is pt-BR. Use `width="stretch"`, never the
+deprecated `use_container_width`.
 
-Each tab module exposes a single `render_*_tab(...)` function imported via
-`src/expenses/ui/tabs/__init__.py`. Most tabs take `(df_filtered, df_full)`; ingestion/categorization/
-management tabs take a MySQL `engine` instead (or in addition) since they write data rather than just
-visualize it.
+The Streamlit **Dados** page wraps the three data-operation modules in `ui/tabs/`
+(`import_tab`, `categorize_tab`, `management`); they take a MySQL `engine` and write to
+Raw/Bronze/Silver. Dash has no write paths.
 
 `src/expenses/__init__.py` re-exports the public API of the `expenses` package (analytics, config,
 database, parser, ai_categorizer, `filters.apply_filters`, `runtime` shims) — when adding a new function
@@ -165,30 +173,18 @@ meant to be used outside its module, add it there too.
 
 The shared bronze-dedup ingest loop lives in `database.ingest_raw_bronze` (used by the import tab).
 
-Two global sidebar controls sit above the filters (`src/expenses/ui/sidebar.py`), rendered even when the
-DB is empty and *not* part of the returned filter dict:
-- **🙈 Hide amounts** (`st.toggle`, `key="hide_amounts"`) — `main.py` reads the session-state flag and
-  calls `styles.render_amount_visibility_css()`, which injects CSS that blurs `stMetricValue` /
-  `stMetricDelta` / `.insight-card-message` / `.hide-amount` (hover reveals). No change to the individual
-  `st.metric` call sites.
-- **Theme toggle** (`styles.render_theme_toggle`) — rewrites `base` in `.streamlit/config.toml`,
-  mutates the in-process config via `streamlit.config`, then forces a full browser reload
-  (`components.html` + `location.reload()`) so every element repaints from the new base (Streamlit
-  can't hot-swap `[theme]` mid-session). `ui/styles.py` card / header CSS derives its colors from
-  `currentColor` (Streamlit does not expose its theme as CSS variables, so `var(--...)` only ever hits
-  the fallback) and `ui/charts.py` derives grid / tick / total-line colors from
-  `st.get_option("theme.base")` so figures track the active base.
-
 ## Testing conventions
 
 Tests are pure unit tests over DataFrame transforms (parser, analytics, `database._shape_silver_frame`
 + dedup key), `config.py` helpers (currency formatting, category mappings, `normalize_merchant_id`),
 `filters.apply_filters` (`test_filters.py`), `ai_categorizer` matching / Gemini-response reshaping with
-`gemini_category` stubbed (`test_categorizer.py`), `ui/insights` selection logic (`test_insights.py`), an
-import smoke that loads `main.py` + all 8 tab modules with the DB entrypoints monkeypatched to raise
-(`test_app_imports.py`), and a full-render smoke (`test_app_render.py`) that runs `main.py` through
-`streamlit.testing.v1.AppTest` with every DB entrypoint replaced by the synthetic
-`silver_history_df` fixture — no database or Gemini API calls are hit. Shared fixtures
+`gemini_category` stubbed (`test_categorizer.py`), the shared view model and figures
+(`test_dashboard_data.py`), an import smoke for `main.py`, `dash_app.py` and the UI modules with the
+DB entrypoints monkeypatched to raise (`test_app_imports.py`), a Streamlit render smoke
+(`test_app_render.py`: `main.py` via `AppTest.from_file`, the Dados page via
+`AppTest.from_function` because `st.navigation` callables can't be reached with `switch_page`) and
+a Dash smoke (`test_dash_app.py`: layout ids + the pure `update_dashboard` callback body), all on
+the synthetic `silver_history_df` fixture — no database or Gemini API calls are hit. Shared fixtures
 (`sample_raw_csv_content`, `sample_csv_file`, `sample_expenses_df`, `silver_history_df`) live in
 `tests/conftest.py`; extend these rather than duplicating sample data per
 test file. The Silver enrichment lives in the pure `database._shape_silver_frame(df)` helper (called by

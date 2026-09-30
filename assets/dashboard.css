@@ -1,0 +1,85 @@
+/* Dash dashboard styles — tokens mirror src/expenses/dashboard/theme.py */
+:root {
+  --accent: #1f4e79;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --bg: #f7f8fa;
+  --card: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.pe-page { max-width: 1280px; margin: 0 auto; padding: 40px 24px 48px; }
+.pe-title { font-size: 1.6rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+.pe-subtitle { color: var(--muted); font-size: 0.9rem; margin: 4px 0 20px; }
+
+.pe-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.pe-filters label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.pe-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+.pe-section {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.pe-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.pe-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.pe-grid-4 > .pe-card, .pe-grid-2 > .pe-card { margin-bottom: 0; }
+.pe-grid-4, .pe-grid-2 { margin-bottom: 16px; }
+
+.pe-kpi-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin: 0; }
+.pe-kpi-value { font-size: 1.75rem; font-weight: 650; color: var(--accent); margin: 6px 0 4px; }
+.pe-kpi-note { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.pe-empty { color: var(--muted); grid-column: 1 / -1; }
+
+.pe-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.pe-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 6px;
+}
+.pe-table td { border-bottom: 1px solid var(--border); padding: 8px 6px; }
+.pe-table tr:last-child td { border-bottom: none; }
+.pe-table th:last-child, .pe-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pe-table-wrap { overflow-x: auto; }
+
+@media (max-width: 900px) {
+  .pe-filters, .pe-grid-2 { grid-template-columns: 1fr; }
+  .pe-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+  .pe-page { padding: 24px 16px; }
+  .pe-grid-4 { grid-template-columns: 1fr; }
+}

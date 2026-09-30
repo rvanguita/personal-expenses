@@ -2,7 +2,7 @@
 
 Uma aplicação de análise financeira para transformar faturas de cartão de crédito em dados organizados, categorias revisáveis e painéis interativos.
 
-O projeto combina uma interface Streamlit com um pipeline em camadas Raw, Bronze e Silver no MySQL. Arquivos CSV são preservados em formato bruto, padronizados para análise e enriquecidos por regras locais, histórico de classificações e Google Gemini.
+O projeto oferece o mesmo dashboard em Streamlit e em Dash sobre um pipeline em camadas Raw, Bronze e Silver no MySQL. Arquivos CSV são preservados em formato bruto, padronizados para análise e enriquecidos por regras locais, histórico de classificações e Google Gemini.
 
 ## O que o projeto entrega
 
@@ -10,8 +10,8 @@ O projeto combina uma interface Streamlit com um pipeline em camadas Raw, Bronze
 - Arquitetura medalhão em três bancos MySQL independentes.
 - Deduplicação entre cargas e alinhamento automático de colunas.
 - Categorização por histórico, dicionário local e fallback opcional para o Gemini.
-- Dashboard com indicadores, tendências, categorias, recorrências e projeções de parcelas.
-- Edição e manutenção das camadas por uma interface Streamlit.
+- Dashboard único e monocromático (Streamlit e Dash): gasto, média mensal, última fatura, parcelas comprometidas, evolução mensal, categorias, estabelecimentos e maiores compras.
+- Importação, categorização e manutenção das camadas pela página **Dados** do Streamlit.
 - Testes unitários sem dependência de MySQL ou Gemini ativos.
 
 ## Arquitetura e fluxo do projeto
@@ -32,15 +32,16 @@ flowchart LR
 
     silver --> analytics[Analytics]
     analytics --> app[Streamlit]
+    analytics --> dash[Dash]
 ```
 
 ### Fluxo em cinco etapas
 
-1. A aba de ingestão recebe uma ou mais faturas CSV.
+1. A página Dados (aba Importar) recebe uma ou mais faturas CSV.
 2. O parser preserva as colunas originais na Raw e cria uma representação tipada na Bronze.
 3. Comerciantes conhecidos são classificados pelo histórico da Silver ou pelo dicionário local.
 4. Comerciantes ainda desconhecidos podem ser enviados ao Gemini em lotes e revisados antes da persistência.
-5. A Silver alimenta filtros, métricas, gráficos, relatórios e projeções do Streamlit.
+5. A Silver alimenta os dashboards Streamlit e Dash.
 
 ## Camadas de dados
 
@@ -54,18 +55,20 @@ As camadas usam o mesmo nome de tabela, configurado por `MYSQL_TABLE`, em bancos
 
 ## Produto analítico
 
-A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e três abas de operação de dados. Todas compartilham os filtros globais de período, faturas, portador e categoria (tipo de transação, forma de pagamento e busca ficam em "More filters").
+Um único dashboard responde a uma pergunta: **quanto gastei, onde, e o que já está comprometido?**
+Ele é idêntico no Streamlit (`main.py`) e no Dash (`dash_app.py`) e usa uma só cor (azul-marinho
+`#1F4E79` e um tom claro dele) sobre cinzas neutros.
 
-| Aba | Pergunta respondida |
+| Bloco | Conteúdo |
 | --- | --- |
-| Overview | Quanto foi gasto no período e onde? O que precisa de atenção agora? |
-| Trends | Os gastos estão subindo ou caindo, contra o período anterior e o ano passado? |
-| Watchlist | Quais cobranças recorrentes, compras fora do padrão e gastos sem categoria merecem revisão? |
-| Categories | O que compõe uma categoria: histórico, comerciantes e dia da semana? |
-| Reports | Quanto já está comprometido em parcelas e onde estão os dados completos para exportar? |
-| Ingest | Quais arquivos e registros serão carregados em Raw e Bronze? |
-| Categorize | Quais comerciantes foram reconhecidos e quais precisam de classificação? |
-| Manage Data | Como inspecionar, editar e deduplicar as três camadas? |
+| Filtros | Período (3, 6, 12 meses ou todo o histórico), titular e categoria |
+| Indicadores | Gasto no período, média mensal, última fatura vs anterior, parcelas do próximo mês vs `REFERENCE_BUDGET_LIMIT` |
+| Evolução mensal | Gasto líquido por fatura com média móvel de 3 meses |
+| Rankings | Gasto por categoria e top 10 estabelecimentos |
+| Compromissos | Parcelas futuras por mês e as maiores compras do período |
+
+No Streamlit, a página **Dados** reúne as operações de escrita: Importar (Raw/Bronze),
+Categorizar (Silver) e Gerenciar (inspeção, edição e deduplicação). O Dash é somente leitura.
 
 ### Regras analíticas importantes
 
@@ -80,7 +83,7 @@ A interface tem cinco abas de análise, cada uma respondendo a uma pergunta, e t
 
 | Responsabilidade | Tecnologias |
 | --- | --- |
-| Interface e visualização | Streamlit, Plotly |
+| Interface e visualização | Streamlit, Dash, Plotly |
 | Processamento | Python, Pandas, NumPy |
 | Persistência | MySQL, SQLAlchemy, PyMySQL |
 | Categorização assistida | Google Gemini |
@@ -123,24 +126,24 @@ GEMINI_MODEL="gemini-3.6-flash"
 REFERENCE_BUDGET_LIMIT="10000"
 CATEGORY_LOCAL_PATH="data/categories.local.json"
 STREAMLIT_PORT="8503"
+DASH_PORT="8050"
 ```
 
 ### Iniciar a aplicação
 
 ```bash
-uv run streamlit run main.py
+uv run streamlit run main.py   # dashboard + página Dados em http://localhost:8503
+uv run python dash_app.py      # dashboard somente leitura em http://localhost:8050
 ```
-
-O Streamlit estará disponível em `http://localhost:8503`.
 
 ### Executar com Docker
 
 ```bash
 docker compose up --build -d
-docker compose logs -f streamlit
+docker compose logs -f streamlit dash
 ```
 
-O Compose inicia somente a aplicação. O MySQL deve estar acessível a partir da rede do container.
+O Compose inicia os serviços `streamlit` (:8503) e `dash` (:8050). O MySQL deve estar acessível a partir da rede do container.
 
 ## Categorias e aprendizado local
 
@@ -154,7 +157,7 @@ O arquivo local é ignorado pelo Git e pelo build Docker, mas permanece no volum
 - Os padrões de exclusão cobrem CSV, TSV, planilhas, bancos locais, dumps SQL e o dicionário aprendido.
 - Dados financeiros são persistidos no MySQL configurado pelo operador; o repositório não inclui dados de demonstração derivados de pessoas reais.
 - Ao habilitar a categorização por IA, identificadores de comerciantes desconhecidos são enviados à API do Google Gemini. Revise os requisitos de privacidade aplicáveis antes de usar essa função.
-- O controle “Hide amounts” reduz a exposição casual na tela, mas não substitui controles de acesso ao banco ou à aplicação.
+- Nenhum dos dashboards tem autenticação própria; exponha as portas apenas em redes confiáveis.
 
 ## Qualidade e testes
 
@@ -164,7 +167,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-A suíte cobre parsing de CSV, transformação medalhão, deduplicação, categorização, filtros, métricas, gráficos e importação da interface. As integrações externas são simuladas nos testes.
+A suíte cobre parsing de CSV, transformação medalhão, deduplicação, categorização, filtros, métricas, o view model compartilhado do dashboard e a renderização dos dois frontends. As integrações externas são simuladas nos testes.
 
 ## Estrutura do repositório
 
@@ -172,7 +175,8 @@ A suíte cobre parsing de CSV, transformação medalhão, deduplicação, catego
 personal-expenses/
 ├── data/                         # seed público de categorias; dados locais são ignorados
 ├── src/expenses/
-│   ├── ui/                       # componentes, gráficos e abas Streamlit
+│   ├── dashboard/                # view model, figuras Plotly e tokens (sem Streamlit/Dash)
+│   ├── ui/                       # páginas Streamlit (Dashboard, Dados)
 │   ├── ai_categorizer.py         # matching local e integração Gemini
 │   ├── analytics.py              # métricas, tendências e projeções
 │   ├── config.py                 # configuração e metadados compartilhados
@@ -180,7 +184,9 @@ personal-expenses/
 │   └── parser.py                 # leitura e padronização dos CSVs
 ├── template/                     # prompt de categorização
 ├── tests/                        # suíte unitária e smoke tests
-├── main.py                       # entrada da aplicação
+├── assets/                       # CSS do Dash
+├── dash_app.py                   # entrada Dash
+├── main.py                       # entrada Streamlit
 ├── Dockerfile
 ├── docker-compose.yml
 └── pyproject.toml

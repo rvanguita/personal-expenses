@@ -1,4 +1,4 @@
-"""Renders the full Streamlit app headlessly (AppTest) on synthetic frames and checks that no tab
+"""Renders the Streamlit app headlessly (AppTest) on synthetic frames and checks that neither page
 raises. Every database entrypoint is replaced — nothing touches MySQL."""
 
 import importlib
@@ -13,16 +13,7 @@ from src.expenses.parser import parse_raw_csv, transform_raw_to_bronze
 
 MAIN_SCRIPT = str(Path(__file__).resolve().parents[1] / "main.py")
 
-EXPECTED_TABS = [
-    "📊 Overview",
-    "📈 Trends",
-    "🔔 Watchlist",
-    "🔍 Categories",
-    "📑 Reports",
-    "📥 Ingest",
-    "🏷️ Categorize",
-    "🛠️ Manage Data",
-]
+DATA_TABS = ["Importar", "Categorizar", "Gerenciar"]
 
 SILVER_LAYER_COLUMNS = [
     "date",
@@ -40,6 +31,12 @@ def _returning(frame: pd.DataFrame | None):
     return lambda *_args, **_kwargs: frame.copy() if frame is not None else pd.DataFrame()
 
 
+def _data_page(df_full):
+    from src.expenses.ui.data_page import render_data
+
+    render_data(df_full, object())
+
+
 @pytest.fixture
 def offline_app(monkeypatch):
     """Factory: ``offline_app(analytics_frame, raw=, bronze=, silver_layer=)`` -> AppTest for
@@ -52,6 +49,7 @@ def offline_app(monkeypatch):
         raw: pd.DataFrame | None = None,
         bronze: pd.DataFrame | None = None,
         silver_layer: pd.DataFrame | None = None,
+        page: str = "dashboard",
     ) -> AppTest:
         database = importlib.import_module("src.expenses.database")
         monkeypatch.setattr(database, "get_db_engine", lambda *_a, **_k: object())
@@ -67,23 +65,36 @@ def offline_app(monkeypatch):
             monkeypatch.setattr(module, "load_silver_data", _returning(silver_layer))
         monkeypatch.setattr(categorize, "create_medallion_tables", lambda *_a, **_k: None)
         monkeypatch.setattr(management, "load_raw_data", _returning(raw))
+        if page == "dados":
+            # st.navigation pages are callables, which AppTest.switch_page can't reach.
+            return AppTest.from_function(_data_page, args=(silver,), default_timeout=60)
         return AppTest.from_file(MAIN_SCRIPT, default_timeout=60)
 
     return _factory
 
 
-def test_all_tabs_render_with_data(offline_app, silver_history_df):
+def test_dashboard_renders_with_data(offline_app, silver_history_df):
     at = offline_app(silver_history_df).run()
     assert not at.exception, [e.message for e in at.exception]
-    assert [t.label for t in at.tabs][: len(EXPECTED_TABS)] == EXPECTED_TABS
-    # One KPI row per analytic tab: Overview/Trends/Watchlist/Categories 4 each, Reports 3.
-    assert len(at.metric) == 4 * 4 + 3
+    # One row of four KPIs, the three filters, and the largest-purchases table.
+    assert len(at.metric) == 4
+    assert [s.label for s in at.selectbox] == ["Período"]
+    assert [m.label for m in at.multiselect] == ["Titular", "Categoria"]
+    assert len(at.dataframe) == 1
+
+
+def test_dashboard_filters_rerun(offline_app, silver_history_df):
+    at = offline_app(silver_history_df).run()
+    at.selectbox(key="dash_period").select("All History").run()
+    at.multiselect(key="dash_categories").select("food").run()
+    assert not at.exception, [e.message for e in at.exception]
+    assert len(at.metric) == 4
 
 
 def test_app_renders_without_data(offline_app):
     at = offline_app(pd.DataFrame()).run()
     assert not at.exception, [e.message for e in at.exception]
-    assert any("No data found" in w.value for w in at.warning)
+    assert any("Nenhum dado encontrado" in w.value for w in at.warning)
 
 
 def test_operation_tabs_render_with_layer_data(offline_app, silver_history_df, sample_csv_file):
@@ -93,9 +104,12 @@ def test_operation_tabs_render_with_layer_data(offline_app, silver_history_df, s
         motivation="", categorized_by="history_match"
     )
 
-    at = offline_app(silver_history_df, raw=raw, bronze=bronze, silver_layer=silver_layer).run()
+    at = offline_app(
+        silver_history_df, raw=raw, bronze=bronze, silver_layer=silver_layer, page="dados"
+    ).run()
 
     assert not at.exception, [e.message for e in at.exception]
+    assert [t.label for t in at.tabs][: len(DATA_TABS)] == DATA_TABS
     metrics = {m.label: m.value for m in at.metric}
     assert metrics["Total Bronze"] == f"{len(bronze):,}"
     assert metrics["Total Silver Records"] == f"{len(silver_layer):,}"

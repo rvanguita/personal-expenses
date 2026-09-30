@@ -1,23 +1,11 @@
-from src.expenses.ui.sidebar import render_sidebar
-from src.expenses.ui.styles import (
-    apply_custom_styles,
-    render_amount_visibility_css,
-    render_attention,
-    render_header,
-    render_insight,
-    render_insight_card,
-    render_theme_toggle,
-    section,
-)
+from src.expenses.ui.dashboard_page import render_dashboard
+from src.expenses.ui.data_page import render_data
+from src.expenses.ui.style import apply_style, header, section
 
 __all__ = [
-    "apply_custom_styles",
-    "render_amount_visibility_css",
-    "render_attention",
-    "render_header",
-    "render_insight",
-    "render_insight_card",
-    "render_sidebar",
-    "render_theme_toggle",
+    "apply_style",
+    "header",
+    "render_dashboard",
+    "render_data",
     "section",
 ]

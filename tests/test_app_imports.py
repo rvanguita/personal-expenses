@@ -5,26 +5,15 @@ import importlib
 
 import pytest
 
-TAB_MODULES = [
-    "dashboard",
-    "trends",
-    "watchlist",
-    "category",
-    "reports",
-    "import_tab",
-    "categorize_tab",
-    "management",
-]
+TAB_MODULES = ["import_tab", "categorize_tab", "management"]
 
-RENDER_FUNCS = [
-    "render_dashboard_tab",
-    "render_trends_tab",
-    "render_watchlist_tab",
-    "render_category_tab",
-    "render_reports_tab",
-    "render_import_tab",
-    "render_categorize_tab",
-    "render_management_tab",
+RENDER_FUNCS = ["render_categorize_tab", "render_import_tab", "render_management_tab"]
+
+UI_MODULES = [
+    "src.expenses.ui",
+    "src.expenses.ui.dashboard_page",
+    "src.expenses.ui.data_page",
+    "src.expenses.dashboard",
 ]
 
 
@@ -60,3 +49,28 @@ def test_all_render_funcs_exposed(no_db):
     tabs_pkg = importlib.import_module("src.expenses.ui.tabs")
     for fn in RENDER_FUNCS:
         assert callable(getattr(tabs_pkg, fn)), fn
+
+
+@pytest.mark.parametrize("module", UI_MODULES)
+def test_ui_module_imports(no_db, module):
+    importlib.import_module(module)
+
+
+def test_dash_app_imports_without_running(no_db):
+    dash_app = importlib.import_module("dash_app")
+    assert callable(dash_app.create_app)
+
+
+def test_shared_dashboard_layer_is_framework_free():
+    import ast
+    from pathlib import Path
+
+    for path in Path("src/expenses/dashboard").glob("*.py"):
+        tree = ast.parse(path.read_text())
+        imported = {
+            (node.module if isinstance(node, ast.ImportFrom) else alias.name).split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import | ast.ImportFrom)
+            for alias in node.names
+        }
+        assert not imported & {"streamlit", "dash"}, path
