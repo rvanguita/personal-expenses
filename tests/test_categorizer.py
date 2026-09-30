@@ -12,7 +12,7 @@ from expenses.ai_categorizer import (
     match_merchants_with_history,
 )
 
-_CATEGORY_JSON = "data/categories.default.json"
+_CATEGORY_JSON = "docs/data/categories.default.json"
 
 
 def test_match_merchants_with_history_empty_and_missing_id():

@@ -22,8 +22,7 @@ RUN uv sync --frozen --no-dev --package expenses-dash --no-install-workspace
 
 # Shared backend (package `expenses`), project data and this app only
 COPY src/ ./src/
-COPY data/ ./data/
-COPY template/ ./template/
+COPY docs/ ./docs/
 COPY app/dash/ ./app/dash/
 RUN uv sync --frozen --no-dev --package expenses-dash
 

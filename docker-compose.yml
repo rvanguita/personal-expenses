@@ -1,7 +1,7 @@
 name: expenses
 
 # One service per app under app/, each built from its own Dockerfile with the repository root as
-# build context (the apps share src/, data/ and template/).
+# build context (the apps share src/ and docs/: category seed and prompt template).
 services:
   streamlit:
     build:
@@ -19,7 +19,7 @@ services:
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
     volumes:
       # Persist the AI category dictionary (grown by the categorization pipeline) into the container
-      - ./data:/app/data
+      - ./docs/data:/app/docs/data
 
   dash:
     build:
@@ -35,4 +35,4 @@ services:
     environment:
       - DASH_PORT=8050
     volumes:
-      - ./data:/app/data
+      - ./docs/data:/app/docs/data

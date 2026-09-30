@@ -19,16 +19,16 @@ htmlcov/
 **/tests/
 conftest.py
 
-# Secrets and financial data (never baked into an image; data/ is mounted at runtime)
+# Secrets and financial data (never baked into an image; docs/data/ is mounted at runtime)
 .env
 .env.*
 .streamlit/secrets.toml
 **/.streamlit/secrets.toml
-data/categories.local.json
-data/**/*.csv
-data/**/*.tsv
-data/**/*.xlsx
-data/**/*.xls
+docs/data/categories.local.json
+docs/data/**/*.csv
+docs/data/**/*.tsv
+docs/data/**/*.xlsx
+docs/data/**/*.xls
 *.sqlite
 *.sqlite3
 *.db
